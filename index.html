@@ -237,10 +237,10 @@
   /* print */
   #printArea{display:none;}
   @media print{
-    body{background:#fff !important;}
-    #shell{box-shadow:none; max-width:none;}
-    #app-visible-content{display:none !important;}
-    #printArea{display:block !important;}
+    html,body{background:#fff !important; display:block !important; width:auto !important; height:auto !important;}
+    #shell{display:none !important;}
+    #modalRoot,#toast{display:none !important;}
+    #printArea{display:block !important; width:100% !important; max-width:none !important; margin:0 !important; padding:0 !important;}
     .pr-page{padding:0; font-family:'IBM Plex Sans',Arial,sans-serif; color:#111;}
     .pr-header{display:flex; justify-content:space-between; border-bottom:2px solid #111; padding-bottom:8px; margin-bottom:10px;}
     .pr-header h1{font-size:16px; margin:0 0 3px;}
