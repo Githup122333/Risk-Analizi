@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Saha Risk Kaydı</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Risk Kaydı">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#152225">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23152225'/%3E%3Ctext x='50' y='62' font-size='46' text-anchor='middle' fill='%23F6F3EC' font-family='Arial'%3E⚠%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23152225'/%3E%3Ctext x='50' y='62' font-size='46' text-anchor='middle' fill='%23F6F3EC' font-family='Arial'%3E⚠%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#20282B;
+    --paper:#F6F3EC;
+    --paper2:#FFFFFF;
+    --chrome:#152225;
+    --chrome2:#1C3238;
+    --accent:#2F7A75;
+    --accent-dark:#1F5A56;
+    --accent-ink:#E9F4F2;
+    --low:#4C7A52; --low-bg:#E6EEE3; --low-line:#BFD4BC;
+    --med:#A8730C; --med-bg:#FBF0D8; --med-line:#E7CE94;
+    --high:#AE4432; --high-bg:#FAE1DB; --high-line:#E3B5A9;
+    --border:#E1DACB;
+    --muted:#7A766B;
+    --danger:#B23B2E;
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--chrome);}
+  body{
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    color:var(--ink);
+    display:flex; justify-content:center;
+    min-height:100vh;
+  }
+  #shell{
+    width:100%; max-width:480px; min-height:100vh;
+    background:var(--paper);
+    display:flex; flex-direction:column;
+    position:relative;
+    box-shadow:0 0 40px rgba(0,0,0,0.35);
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Space Grotesk',system-ui,sans-serif;}
+
+  /* App bar */
+  .appbar{
+    background:linear-gradient(180deg,var(--chrome2),var(--chrome));
+    color:#fff; padding:16px 18px 14px;
+    position:sticky; top:0; z-index:20;
+  }
+  .appbar-row{display:flex; align-items:center; gap:10px;}
+  .appbar-title{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:0.2px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .appbar-sub{font-size:12px; color:#B9CFCC; margin-top:2px; font-family:'IBM Plex Mono',monospace;}
+  .icon-btn{
+    width:36px;height:36px; border-radius:10px; border:none;
+    background:rgba(255,255,255,0.08); color:#fff; font-size:18px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    flex-shrink:0;
+  }
+  .icon-btn:active{background:rgba(255,255,255,0.18);}
+
+  /* Content */
+  #content{flex:1; padding:16px 16px 100px;}
+
+  /* Empty state */
+  .empty{
+    text-align:center; padding:56px 20px; color:var(--muted);
+  }
+  .empty .stamp{
+    width:64px;height:64px;border-radius:50%;
+    border:2px dashed var(--border); margin:0 auto 16px;
+    display:flex;align-items:center;justify-content:center;font-size:26px;
+  }
+  .empty h3{font-family:'Space Grotesk',sans-serif; color:var(--ink); margin:0 0 6px;}
+  .empty p{font-size:14px; line-height:1.5; margin:0 auto; max-width:280px;}
+
+  /* Project cards */
+  .proj-card{
+    background:var(--paper2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 14px; margin-bottom:12px; cursor:pointer; position:relative;
+    display:flex; gap:12px; align-items:center;
+  }
+  .proj-card:active{transform:scale(0.99);}
+  .proj-idx{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted);
+    width:34px;height:34px;border-radius:9px;background:var(--paper);
+    display:flex;align-items:center;justify-content:center; flex-shrink:0; border:1px solid var(--border);
+  }
+  .proj-main{flex:1; min-width:0;}
+  .proj-name{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; margin:0 0 3px;}
+  .proj-meta{font-size:12px; color:var(--muted);}
+  .proj-badges{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+  .badge{font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; font-family:'IBM Plex Mono',monospace;}
+  .badge.low{background:var(--low-bg); color:var(--low);}
+  .badge.med{background:var(--med-bg); color:var(--med);}
+  .badge.high{background:var(--high-bg); color:var(--high);}
+  .badge.neutral{background:#EEEAE0; color:var(--muted);}
+  .proj-del{
+    position:absolute; top:10px; right:10px; width:28px;height:28px; border-radius:8px;
+    border:none; background:transparent; color:var(--muted); font-size:15px; cursor:pointer;
+  }
+
+  .fab{
+    position:absolute; right:18px; bottom:24px; z-index:15;
+    background:var(--accent); color:#fff; border:none; border-radius:16px;
+    padding:14px 20px; font-size:15px; font-weight:600; font-family:'IBM Plex Sans',sans-serif;
+    box-shadow:0 8px 20px rgba(47,122,117,0.4); cursor:pointer;
+    display:flex; align-items:center; gap:8px;
+  }
+  .fab:active{background:var(--accent-dark);}
+
+  /* Matrix panel */
+  .matrix-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--paper2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:12px; cursor:pointer;
+  }
+  .matrix-toggle .t{font-weight:600; font-size:14px; font-family:'Space Grotesk',sans-serif;}
+  .matrix-toggle .c{font-size:12px; color:var(--muted);}
+  .matrix-panel{
+    background:var(--paper2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; margin:-4px 0 12px; font-size:12px;
+  }
+  .mtable{width:100%; border-collapse:collapse; margin-bottom:10px; font-family:'IBM Plex Mono',monospace; font-size:11px;}
+  .mtable th,.mtable td{border:1px solid var(--border); text-align:center; padding:5px 2px;}
+  .mtable th{background:var(--paper); font-weight:600; font-size:10px;}
+  .mtable td.corner{background:var(--chrome); color:#fff; font-size:9px; font-family:'IBM Plex Sans';}
+  .mlegend{display:flex; flex-direction:column; gap:5px;}
+  .mlegend .row{display:flex; align-items:center; gap:8px; font-size:11.5px;}
+  .mlegend .sw{width:14px;height:14px;border-radius:4px; flex-shrink:0;}
+
+  /* Risk entry cards */
+  .rk-card{
+    background:var(--paper2); border:1px solid var(--border); border-radius:var(--radius);
+    margin-bottom:10px; overflow:hidden;
+  }
+  .rk-head{display:flex; gap:10px; padding:13px 14px; cursor:pointer; align-items:flex-start;}
+  .rk-no{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted);
+    background:var(--paper); border:1px solid var(--border); border-radius:8px;
+    padding:3px 7px; flex-shrink:0; margin-top:2px;
+  }
+  .rk-body{flex:1; min-width:0;}
+  .rk-tehlike{font-weight:600; font-size:14.5px; line-height:1.35;}
+  .rk-risk{font-size:12.5px; color:var(--muted); margin-top:3px; line-height:1.4;}
+  .rk-chips{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+  .chip{font-size:10.5px; padding:2px 7px; border-radius:99px; background:var(--paper); border:1px solid var(--border); color:var(--muted); font-family:'IBM Plex Mono',monospace;}
+  .rk-score{
+    width:42px;height:42px; border-radius:10px; flex-shrink:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:15px; line-height:1;
+  }
+  .rk-score span{font-size:8px; font-weight:600; margin-top:2px; letter-spacing:0.3px;}
+  .rk-detail{border-top:1px solid var(--border); padding:12px 14px 14px; background:var(--paper);}
+  .etk-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--paper2); border:1px solid var(--border); border-radius:10px;
+    padding:8px 10px; margin-bottom:7px; font-size:12.5px;
+  }
+  .etk-grp{font-weight:500;}
+  .etk-nums{display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--muted);}
+  .etk-rs{
+    font-weight:700; border-radius:6px; padding:2px 7px; color:#fff; font-size:12px;
+  }
+  .onlem-box{
+    font-size:12.5px; line-height:1.5; background:var(--paper2); border:1px solid var(--border);
+    border-radius:10px; padding:10px 11px; margin-top:8px; white-space:pre-wrap;
+  }
+  .onlem-label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:4px; font-weight:600;}
+  .rk-actions{display:flex; gap:8px; margin-top:10px;}
+  .btn{
+    border:none; border-radius:9px; padding:9px 12px; font-size:13px; font-weight:600;
+    cursor:pointer; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .btn.primary{background:var(--accent); color:#fff;}
+  .btn.primary:active{background:var(--accent-dark);}
+  .btn.ghost{background:var(--paper2); color:var(--ink); border:1px solid var(--border);}
+  .btn.danger{background:#fff; color:var(--danger); border:1px solid var(--high-line);}
+  .btn.block{width:100%;}
+  .btn.sm{padding:6px 10px; font-size:12px;}
+
+  /* Modal */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(15,20,21,0.55); z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .modal-sheet{
+    width:100%; max-width:480px; max-height:92vh; overflow-y:auto;
+    background:var(--paper); border-radius:20px 20px 0 0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+    animation:slideup 0.22s ease-out;
+  }
+  @keyframes slideup{from{transform:translateY(24px); opacity:0.4;} to{transform:translateY(0); opacity:1;}}
+  .modal-title{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; margin:2px 0 16px; display:flex; justify-content:space-between; align-items:center;}
+  .modal-title .x{cursor:pointer; color:var(--muted); font-size:20px; padding:2px 6px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.4px;}
+  .field input[type=text], .field textarea, .field select{
+    width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 11px;
+    font-size:14.5px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--ink);
+  }
+  .field textarea{min-height:70px; resize:vertical; line-height:1.4;}
+  .field input:focus, .field textarea:focus, .field select:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  .subhead{display:flex; justify-content:space-between; align-items:center; margin:18px 0 10px;}
+  .subhead h4{font-family:'Space Grotesk',sans-serif; font-size:14px; margin:0;}
+  .etk-form-row{
+    background:#fff; border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:9px;
+  }
+  .etk-form-grid{display:grid; grid-template-columns:1fr 68px 68px; gap:7px; align-items:end;}
+  .etk-form-grid label{font-size:10px; color:var(--muted); font-weight:600; display:block; margin-bottom:4px;}
+  .etk-form-grid select{padding:8px 7px; font-size:13px;}
+  .etk-remove{display:flex; justify-content:flex-end; margin-top:6px;}
+  .etk-remove button{background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer; font-weight:600;}
+  .live-rs{display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12px; color:var(--muted);}
+  .live-rs .dot{width:10px;height:10px;border-radius:3px;}
+  .confirm-text{font-size:14px; line-height:1.5; margin-bottom:18px; color:var(--ink);}
+  .modal-btn-row{display:flex; gap:10px;}
+  .modal-btn-row .btn{flex:1;}
+  .helper{font-size:11.5px; color:var(--muted); margin-top:5px; line-height:1.4;}
+
+  /* toast */
+  #toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(120%);
+    background:var(--chrome); color:#fff; padding:11px 18px; border-radius:99px; font-size:13px;
+    z-index:80; transition:transform 0.25s ease; box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    max-width:88%; text-align:center;
+  }
+  #toast.show{transform:translateX(-50%) translateY(0);}
+
+  /* print */
+  #printArea{display:none;}
+  @media print{
+    body{background:#fff !important;}
+    #shell{box-shadow:none; max-width:none;}
+    #app-visible-content{display:none !important;}
+    #printArea{display:block !important;}
+    .pr-page{padding:0; font-family:'IBM Plex Sans',Arial,sans-serif; color:#111;}
+    .pr-header{display:flex; justify-content:space-between; border-bottom:2px solid #111; padding-bottom:8px; margin-bottom:10px;}
+    .pr-header h1{font-size:16px; margin:0 0 3px;}
+    .pr-header .sub{font-size:11px; color:#333;}
+    .pr-header .dates{font-size:10.5px; text-align:right; color:#333;}
+    table.pr-matrix{border-collapse:collapse; margin-bottom:14px; font-size:9px;}
+    table.pr-matrix th, table.pr-matrix td{border:1px solid #999; padding:3px 5px; text-align:center;}
+    table.pr-data{border-collapse:collapse; width:100%; font-size:9.5px; margin-bottom:16px;}
+    table.pr-data th{background:#eee; border:1px solid #999; padding:4px; font-size:9px;}
+    table.pr-data td{border:1px solid #999; padding:4px; vertical-align:top;}
+    table.pr-data tr{page-break-inside:avoid;}
+    .pr-rs{font-weight:700; text-align:center;}
+    .pr-legend{display:flex; gap:14px; font-size:9.5px; margin-bottom:14px;}
+    .pr-legend span{display:inline-flex; align-items:center; gap:4px;}
+    .pr-legend i{width:10px;height:10px; display:inline-block; border:1px solid #999;}
+    @page{margin:14mm 12mm;}
+  }
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="app-visible-content" style="display:flex; flex-direction:column; flex:1;">
+    <div class="appbar" id="appbar"></div>
+    <div id="content"></div>
+  </div>
+  <div id="fabHolder"></div>
+</div>
+<div id="modalRoot"></div>
+<div id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+/* ---------------------------------------------------------
+   VERİ MODELİ
+   index key -> [{id, isim, kurum, olusturma, guncelleme, sonRK}]
+   proje_{id} key -> { id, isim, kurum, olusturma, guncelleme, sonRK, satirlar:[
+      { id, rk, tehlike, risk, onlemler, etkilenenler:[{id, grup, olasilik, siddet}] }
+   ]}
+--------------------------------------------------------- */
+
+const ETKILENEN_GRUPLARI = [
+  "Doktor","Hemşire / Sağlık Memuru","Anestezi Teknisyeni","Temizlik Personeli",
+  "Güvenlik Personeli","Hastalar","Ziyaretçiler","Tıbbi Sekreter / Otomasyon Görevlisi","Diğer"
+];
+
+let state = { view:'home', projectId:null, expanded:{}, matrixOpen:false, project:null, index:[] };
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function bugun(){ return new Date().toLocaleDateString('tr-TR'); }
+function nowIso(){ return new Date().toISOString(); }
+
+/* ---------------- STORAGE ----------------
+   Claude artifact ortamında window.storage kullanılır (hesaba bağlı, kalıcı).
+   Bağımsız barındırma (GitHub Pages, ana ekran kısayolu vb.) durumunda
+   window.storage bulunmaz; bu durumda otomatik olarak tarayıcının
+   localStorage'ına düşer (o cihaz/tarayıcıya özel, ama tamamen bağımsız çalışır). */
+const HAS_CLOUD_STORAGE = !!(window.storage && typeof window.storage.get === 'function');
+const LS_PREFIX = 'srk_';
+
+async function storageGet(key){
+  if(HAS_CLOUD_STORAGE){
+    try{ const r = await window.storage.get(key,false); return r ? JSON.parse(r.value) : null; }
+    catch(e){ return null; }
+  }
+  try{ const v = localStorage.getItem(LS_PREFIX+key); return v ? JSON.parse(v) : null; }
+  catch(e){ return null; }
+}
+async function storageSet(key,val){
+  if(HAS_CLOUD_STORAGE){
+    try{ await window.storage.set(key, JSON.stringify(val), false); return true; }
+    catch(e){ showToast('Kayıt hatası: veri kaydedilemedi'); return false; }
+  }
+  try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(val)); return true; }
+  catch(e){ showToast('Kayıt hatası: cihaz depolaması dolu olabilir'); return false; }
+}
+async function storageDelete(key){
+  if(HAS_CLOUD_STORAGE){
+    try{ await window.storage.delete(key,false); }catch(e){}
+    return;
+  }
+  try{ localStorage.removeItem(LS_PREFIX+key); }catch(e){}
+}
+
+async function loadIndex(){
+  const idx = await storageGet('index');
+  state.index = idx || [];
+  return state.index;
+}
+async function saveIndex(){ await storageSet('index', state.index); }
+
+async function loadProject(id){
+  const p = await storageGet('proje_'+id);
+  state.project = p;
+  return p;
+}
+async function saveProject(p){
+  p.guncelleme = nowIso();
+  await storageSet('proje_'+p.id, p);
+  const entry = state.index.find(x=>x.id===p.id);
+  if(entry){
+    entry.isim = p.isim; entry.guncelleme = p.guncelleme;
+    entry.riskSayisi = p.satirlar.length;
+    entry.yuksekSayisi = countByLevel(p,'high');
+    entry.ortaSayisi = countByLevel(p,'med');
+    await saveIndex();
+  }
+}
+function countByLevel(p, level){
+  let c=0;
+  p.satirlar.forEach(s=>{
+    const maxRs = Math.max(0,...s.etkilenenler.map(e=>e.olasilik*e.siddet));
+    const lv = seviye(maxRs).key;
+    if(lv===level) c++;
+  });
+  return c;
+}
+
+/* ---------------- RISK LEVEL LOGIC ---------------- */
+function seviye(rs){
+  if(rs>=15) return {key:'high', label:'Yüksek Risk', color:'var(--high)', bg:'var(--high-bg)', hex:'#AE4432', hexbg:'#FAE1DB'};
+  if(rs>=8)  return {key:'med',  label:'Orta Risk',   color:'var(--med)',  bg:'var(--med-bg)',  hex:'#A8730C', hexbg:'#FBF0D8'};
+  if(rs>=1)  return {key:'low',  label:'Düşük Risk',  color:'var(--low)',  bg:'var(--low-bg)',  hex:'#4C7A52', hexbg:'#E6EEE3'};
+  return {key:'none', label:'—', color:'var(--muted)', bg:'#EEEAE0', hex:'#7A766B', hexbg:'#EEEAE0'};
+}
+
+/* ---------------- TOAST ---------------- */
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ---------------- MODAL HELPERS ---------------- */
+function openModal(html){
+  document.getElementById('modalRoot').innerHTML =
+    '<div class="modal-backdrop" onmousedown="if(event.target===this)closeModal()"><div class="modal-sheet">'+html+'</div></div>';
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+
+/* ---------------- RENDER: APPBAR ---------------- */
+function renderAppbar(){
+  const bar = document.getElementById('appbar');
+  if(state.view==='home'){
+    bar.innerHTML =
+      '<div class="appbar-row">'+
+        '<div style="flex:1; min-width:0;"><div class="appbar-title display">Saha Risk Kaydı</div>'+
+        '<div class="appbar-sub">İSG · Birim Bazlı Değerlendirme</div></div>'+
+        '<button class="icon-btn" onclick="openBackupModal()">⇅</button>'+
+      '</div>';
+  } else {
+    const p = state.project;
+    bar.innerHTML =
+      '<div class="appbar-row">'+
+        '<button class="icon-btn" onclick="goHome()">‹</button>'+
+        '<div style="flex:1; min-width:0;">'+
+          '<div class="appbar-title display">'+esc(p.isim)+'</div>'+
+          '<div class="appbar-sub">Güncelleme: '+fmtDate(p.guncelleme)+'</div>'+
+        '</div>'+
+        '<button class="icon-btn" onclick="openProjectMenu()">⋮</button>'+
+      '</div>';
+  }
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+}
+function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- RENDER: HOME ---------------- */
+function renderHome(){
+  const c = document.getElementById('content');
+  if(!state.index.length){
+    c.innerHTML =
+      '<div class="empty">'+
+        '<div class="stamp">🏥</div>'+
+        '<h3 class="display">Henüz birim eklenmedi</h3>'+
+        '<p>Gezdiğin her birim (Ameliyathane, Yoğun Bakım, Gastroenteroloji…) için ayrı bir kayıt sayfası aç. Aşağıdan yeni bir birim ekleyerek başla.</p>'+
+      '</div>';
+  } else {
+    let html = '';
+    state.index.slice().sort((a,b)=> new Date(b.guncelleme)-new Date(a.guncelleme)).forEach((p,i)=>{
+      html += '<div class="proj-card" onclick="openProject(\''+p.id+'\')">'+
+        '<div class="proj-idx mono">'+String(i+1).padStart(2,'0')+'</div>'+
+        '<div class="proj-main">'+
+          '<div class="proj-name">'+esc(p.isim)+'</div>'+
+          '<div class="proj-meta">'+(p.riskSayisi||0)+' kayıt · '+fmtDate(p.guncelleme)+'</div>'+
+          '<div class="proj-badges">'+
+            (p.yuksekSayisi ? '<span class="badge high">'+p.yuksekSayisi+' Yüksek</span>' : '')+
+            (p.ortaSayisi ? '<span class="badge med">'+p.ortaSayisi+' Orta</span>' : '')+
+            (!p.riskSayisi ? '<span class="badge neutral">Kayıt yok</span>' : '')+
+          '</div>'+
+        '</div>'+
+        '<button class="proj-del" onclick="event.stopPropagation(); confirmDeleteProject(\''+p.id+'\',\''+esc(p.isim).replace(/'/g,"\\'")+'\')">🗑</button>'+
+      '</div>';
+    });
+    c.innerHTML = html;
+  }
+  document.getElementById('fabHolder').innerHTML =
+    '<button class="fab" onclick="openNewProjectModal()">+ Yeni Birim</button>';
+}
+
+function openNewProjectModal(){
+  openModal(
+    '<div class="modal-title">Yeni Birim <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="field"><label>Birim / Faaliyet Adı</label>'+
+    '<input type="text" id="npIsim" placeholder="Örn. Yoğun Bakım Ünitesi"></div>'+
+    '<div class="field"><label>Kurum Adı</label>'+
+    '<input type="text" id="npKurum" value="SBÜ. Van Bölge Eğitim ve Araştırma Hastanesi"></div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn primary" onclick="createProject()">Oluştur</button>'+
+    '</div>'
+  );
+  setTimeout(()=>document.getElementById('npIsim').focus(),80);
+}
+async function createProject(){
+  const isim = document.getElementById('npIsim').value.trim();
+  const kurum = document.getElementById('npKurum').value.trim();
+  if(!isim){ showToast('Birim adı boş olamaz'); return; }
+  const p = { id:uid(), isim, kurum:kurum||'—', olusturma:nowIso(), guncelleme:nowIso(), sonRK:0, satirlar:[] };
+  state.index.push({id:p.id, isim:p.isim, guncelleme:p.guncelleme, riskSayisi:0, yuksekSayisi:0, ortaSayisi:0});
+  await storageSet('proje_'+p.id, p);
+  await saveIndex();
+  closeModal();
+  showToast('Birim oluşturuldu');
+  openProject(p.id);
+}
+
+function confirmDeleteProject(id,isim){
+  openModal(
+    '<div class="modal-title">Birimi Sil <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">"<b>'+isim+'</b>" birimini ve içindeki tüm risk kayıtlarını kalıcı olarak silmek üzeresin. Bu işlem geri alınamaz.</div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn danger" onclick="deleteProject(\''+id+'\')">Sil</button>'+
+    '</div>'
+  );
+}
+async function deleteProject(id){
+  state.index = state.index.filter(p=>p.id!==id);
+  await saveIndex();
+  await storageDelete('proje_'+id);
+  closeModal();
+  showToast('Birim silindi');
+  renderHome();
+}
+
+/* ---------------- NAVIGATION ---------------- */
+async function goHome(){
+  state.view='home'; state.projectId=null; state.project=null; state.expanded={};
+  await loadIndex();
+  renderAppbar(); renderHome();
+}
+async function openProject(id){
+  state.view='project'; state.projectId=id; state.expanded={};
+  await loadProject(id);
+  if(!state.project){ showToast('Kayıt bulunamadı'); return goHome(); }
+  renderAppbar(); renderProject();
+}
+function openProjectMenu(){
+  openModal(
+    '<div class="modal-title">Birim İşlemleri <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div style="display:flex; flex-direction:column; gap:9px;">'+
+      '<button class="btn ghost block" onclick="closeModal(); openRenameModal();">✏️ Birim Adını / Kurumu Düzenle</button>'+
+      '<button class="btn ghost block" onclick="closeModal(); exportPdf();">🖨️ Yazdır / PDF Olarak Kaydet</button>'+
+      '<button class="btn danger block" onclick="closeModal(); confirmDeleteProject(\''+state.project.id+'\',\''+esc(state.project.isim).replace(/'/g,"\\'")+'\')">🗑 Birimi Sil</button>'+
+    '</div>'
+  );
+}
+function openRenameModal(){
+  const p = state.project;
+  openModal(
+    '<div class="modal-title">Birimi Düzenle <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="field"><label>Birim / Faaliyet Adı</label><input type="text" id="rnIsim" value="'+esc(p.isim)+'"></div>'+
+    '<div class="field"><label>Kurum Adı</label><input type="text" id="rnKurum" value="'+esc(p.kurum)+'"></div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn primary" onclick="saveRename()">Kaydet</button>'+
+    '</div>'
+  );
+}
+async function saveRename(){
+  const isim = document.getElementById('rnIsim').value.trim();
+  const kurum = document.getElementById('rnKurum').value.trim();
+  if(!isim){ showToast('Birim adı boş olamaz'); return; }
+  state.project.isim = isim; state.project.kurum = kurum||'—';
+  await saveProject(state.project);
+  closeModal();
+  renderAppbar(); renderProject();
+}
+
+/* ---------------- RENDER: PROJECT ---------------- */
+function renderProject(){
+  const c = document.getElementById('content');
+  const p = state.project;
+  let html = '';
+
+  html += '<div class="matrix-toggle" onclick="toggleMatrix()">'+
+    '<div><div class="t">📐 L Tipi Risk Matrisi</div><div class="c">Olasılık × Şiddet referans tablosu</div></div>'+
+    '<div style="font-size:18px; color:var(--muted);">'+(state.matrixOpen?'▲':'▼')+'</div>'+
+  '</div>';
+  if(state.matrixOpen) html += matrixPanelHtml();
+
+  if(!p.satirlar.length){
+    html += '<div class="empty">'+
+      '<div class="stamp">📋</div>'+
+      '<h3 class="display">Kayıtlı risk yok</h3>'+
+      '<p>Sahada tespit ettiğin ilk tehlikeyi aşağıdaki butonla hemen ekle.</p>'+
+    '</div>';
+  } else {
+    const sorted = p.satirlar.slice().sort((a,b)=>{
+      const ma = Math.max(0,...a.etkilenenler.map(e=>e.olasilik*e.siddet));
+      const mb = Math.max(0,...b.etkilenenler.map(e=>e.olasilik*e.siddet));
+      return mb-ma;
+    });
+    sorted.forEach(s=>{ html += rkCardHtml(s); });
+  }
+  c.innerHTML = html;
+
+  document.getElementById('fabHolder').innerHTML =
+    '<button class="fab" onclick="openEntryForm(null)">+ Risk Ekle</button>';
+}
+
+function matrixPanelHtml(){
+  const grid = [
+    [5,25,20,15,10,5],
+    [4,20,16,12,8,4],
+    [3,15,12,9,6,3],
+    [2,10,8,6,4,2],
+    [1,5,4,3,2,1]
+  ];
+  let t = '<table class="mtable"><tr><td class="corner">O \\ Ş</td><th>5<br>Çok Ciddi</th><th>4<br>Ciddi</th><th>3<br>Orta</th><th>2<br>Hafif</th><th>1<br>Çok Hafif</th></tr>';
+  const olasiklar=[5,4,3,2,1];
+  grid.forEach((row,i)=>{
+    t += '<tr><th>'+olasiklar[i]+'</th>';
+    row.slice(1).forEach(v=>{
+      const lv = seviye(v);
+      t += '<td style="background:'+lv.hexbg+'; color:'+lv.hex+'; font-weight:700;">'+v+'</td>';
+    });
+    t += '</tr>';
+  });
+  t += '</table>';
+  const legend = '<div class="mlegend">'+
+    '<div class="row"><span class="sw" style="background:#FAE1DB;"></span><b>15–25 Yüksek Risk</b> — Hemen çalışma yapılmalı</div>'+
+    '<div class="row"><span class="sw" style="background:#FBF0D8;"></span><b>8–12 Orta Risk</b> — Olabildiğince çabuk müdahale edilmeli</div>'+
+    '<div class="row"><span class="sw" style="background:#E6EEE3;"></span><b>1–6 Düşük Risk</b> — Acil tedbir gerektirmeyebilir</div>'+
+  '</div>';
+  return '<div class="matrix-panel">'+t+legend+'</div>';
+}
+
+function rkCardHtml(s){
+  const maxRs = Math.max(0,...s.etkilenenler.map(e=>e.olasilik*e.siddet));
+  const lv = seviye(maxRs);
+  const open = !!state.expanded[s.id];
+  let html = '<div class="rk-card">'+
+    '<div class="rk-head" onclick="toggleExpand(\''+s.id+'\')">'+
+      '<div class="rk-no mono">No.'+String(s.rk).padStart(3,'0')+'</div>'+
+      '<div class="rk-body">'+
+        '<div class="rk-tehlike">'+esc(s.tehlike)+'</div>'+
+        '<div class="rk-risk">'+esc(s.risk)+'</div>'+
+        '<div class="rk-chips">'+
+          '<span class="chip">'+s.etkilenenler.length+' etkilenen grubu</span>'+
+          '<span class="chip">RS max '+maxRs+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="rk-score" style="background:'+lv.hexbg+'; color:'+lv.hex+';">'+maxRs+
+        '<span>'+lv.label.split(' ')[0].toUpperCase()+'</span>'+
+      '</div>'+
+    '</div>';
+  if(open){
+    html += '<div class="rk-detail">';
+    s.etkilenenler.forEach(e=>{
+      const rs = e.olasilik*e.siddet; const l2 = seviye(rs);
+      html += '<div class="etk-row">'+
+        '<div class="etk-grp">'+esc(e.grup)+'</div>'+
+        '<div class="etk-nums">O:'+e.olasilik+' · Ş:'+e.siddet+' <span class="etk-rs" style="background:'+l2.hex+';">'+rs+'</span></div>'+
+      '</div>';
+    });
+    html += '<div class="onlem-box"><div class="onlem-label">Alınması Gereken Önlemler</div>'+esc(s.onlemler)+'</div>';
+    html += '<div class="rk-actions">'+
+      '<button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation(); openEntryForm(\''+s.id+'\')">✏️ Düzenle</button>'+
+      '<button class="btn danger sm" style="flex:1" onclick="event.stopPropagation(); confirmDeleteRow(\''+s.id+'\')">🗑 Sil</button>'+
+    '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+function toggleExpand(id){ state.expanded[id] = !state.expanded[id]; renderProject(); }
+function toggleMatrix(){ state.matrixOpen = !state.matrixOpen; renderProject(); }
+
+function confirmDeleteRow(id){
+  openModal(
+    '<div class="modal-title">Kaydı Sil <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Bu risk kaydını silmek istediğine emin misin? Bu işlem geri alınamaz.</div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn danger" onclick="deleteRow(\''+id+'\')">Sil</button>'+
+    '</div>'
+  );
+}
+async function deleteRow(id){
+  state.project.satirlar = state.project.satirlar.filter(s=>s.id!==id);
+  await saveProject(state.project);
+  closeModal();
+  showToast('Kayıt silindi');
+  renderProject();
+}
+
+/* ---------------- ENTRY FORM (ADD / EDIT) ---------------- */
+let formTemp = null; // { id, tehlike, risk, onlemler, etkilenenler:[...] }
+
+function openEntryForm(existingId){
+  const p = state.project;
+  if(existingId){
+    const s = p.satirlar.find(x=>x.id===existingId);
+    formTemp = JSON.parse(JSON.stringify(s));
+  } else {
+    formTemp = { id:null, tehlike:'', risk:'', onlemler:'', etkilenenler:[ {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3} ] };
+  }
+  renderEntryForm();
+}
+function renderEntryForm(){
+  const t = formTemp;
+  let etkHtml = '';
+  t.etkilenenler.forEach((e,i)=>{
+    etkHtml += etkRowHtml(e,i);
+  });
+  const html =
+    '<div class="modal-title">'+(t.id?'Riski Düzenle':'Yeni Risk Kaydı')+' <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="field"><label>Tehlike / Faaliyet</label>'+
+      '<input type="text" id="fTehlike" placeholder="Örn. Islak zeminde çalışma" value="'+esc(t.tehlike)+'"></div>'+
+    '<div class="field"><label>Risk (Olası Sonuç)</label>'+
+      '<input type="text" id="fRisk" placeholder="Örn. Düşme, yaralanma" value="'+esc(t.risk)+'"></div>'+
+    '<div class="subhead"><h4>Etkilenenler</h4><button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button></div>'+
+    '<div id="etkList">'+etkHtml+'</div>'+
+    '<div class="field" style="margin-top:14px;"><label>Alınması Gereken Önlemler</label>'+
+      '<textarea id="fOnlem" placeholder="Uygulanacak önlemleri yaz...">'+esc(t.onlemler)+'</textarea></div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn primary" onclick="saveEntry()">Kaydet</button>'+
+    '</div>';
+  openModal(html);
+}
+function etkRowHtml(e,i){
+  const rs = e.olasilik*e.siddet; const lv = seviye(rs);
+  const custom = !ETKILENEN_GRUPLARI.includes(e.grup);
+  let opts = '';
+  ETKILENEN_GRUPLARI.forEach(g=>{
+    opts += '<option value="'+esc(g)+'" '+(e.grup===g?'selected':'')+'>'+g+'</option>';
+  });
+  let sel = [1,2,3,4,5];
+  const oOpts = sel.map(n=>'<option value="'+n+'" '+(e.olasilik==n?'selected':'')+'>'+n+'</option>').join('');
+  const sOpts = sel.map(n=>'<option value="'+n+'" '+(e.siddet==n?'selected':'')+'>'+n+'</option>').join('');
+  return '<div class="etk-form-row" data-idx="'+i+'">'+
+    '<div class="etk-form-grid">'+
+      '<div><label>Etkilenen Grup</label><select onchange="updateEtk('+i+',\'grup\',this.value); if(this.value===\'Diğer\'){document.getElementById(\'custom-\'+'+i+').style.display=\'block\';}">'+opts+'</select>'+
+        (custom ? '<input type="text" id="custom-'+i+'" style="margin-top:6px;" value="'+esc(e.grup)+'" placeholder="Grup adı yaz" oninput="updateEtk('+i+',\'grup\',this.value)">' : '<input type="text" id="custom-'+i+'" style="display:none; margin-top:6px;" placeholder="Grup adı yaz" oninput="updateEtk('+i+',\'grup\',this.value)">')+
+      '</div>'+
+      '<div><label>O</label><select onchange="updateEtk('+i+',\'olasilik\',this.value)">'+oOpts+'</select></div>'+
+      '<div><label>Ş</label><select onchange="updateEtk('+i+',\'siddet\',this.value)">'+sOpts+'</select></div>'+
+    '</div>'+
+    '<div class="live-rs"><span class="dot" style="background:'+lv.hex+';"></span> RS = '+rs+' · '+lv.label+
+      (formTemp.etkilenenler.length>1 ? '<span style="margin-left:auto;"></span>' : '')+
+    '</div>'+
+    (formTemp.etkilenenler.length>1 ? '<div class="etk-remove"><button onclick="removeEtkRow('+i+')">Bu grubu kaldır ✕</button></div>' : '')+
+  '</div>';
+}
+function addEtkRow(){
+  formTemp.etkilenenler.push({id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3});
+  refreshEtkList();
+}
+function removeEtkRow(i){
+  formTemp.etkilenenler.splice(i,1);
+  refreshEtkList();
+}
+function updateEtk(i,field,val){
+  if(field==='olasilik'||field==='siddet') val = parseInt(val,10);
+  formTemp.etkilenenler[i][field] = val;
+  refreshEtkList();
+}
+function refreshEtkList(){
+  // preserve text field values already typed
+  const tehlike = document.getElementById('fTehlike'); if(tehlike) formTemp.tehlike = tehlike.value;
+  const risk = document.getElementById('fRisk'); if(risk) formTemp.risk = risk.value;
+  const onlem = document.getElementById('fOnlem'); if(onlem) formTemp.onlemler = onlem.value;
+  renderEntryForm();
+}
+async function saveEntry(){
+  const tehlike = document.getElementById('fTehlike').value.trim();
+  const risk = document.getElementById('fRisk').value.trim();
+  const onlemler = document.getElementById('fOnlem').value.trim();
+  if(!tehlike || !risk){ showToast('Tehlike ve Risk alanları zorunlu'); return; }
+  if(!formTemp.etkilenenler.length){ showToast('En az bir etkilenen grubu ekle'); return; }
+  const bad = formTemp.etkilenenler.some(e=>!e.grup || !e.grup.trim());
+  if(bad){ showToast('Etkilenen grup adı boş olamaz'); return; }
+
+  const p = state.project;
+  if(formTemp.id){
+    const idx = p.satirlar.findIndex(s=>s.id===formTemp.id);
+    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, onlemler, etkilenenler:formTemp.etkilenenler};
+  } else {
+    p.sonRK = (p.sonRK||0)+1;
+    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, onlemler, etkilenenler:formTemp.etkilenenler});
+  }
+  await saveProject(p);
+  closeModal();
+  showToast('Risk kaydedildi');
+  renderAppbar();
+  renderProject();
+}
+
+/* ---------------- PDF / PRINT EXPORT ---------------- */
+function exportPdf(){
+  const p = state.project;
+  if(!p.satirlar.length){ showToast('Yazdırılacak kayıt yok'); return; }
+  const grid = [[5,25,20,15,10,5],[4,20,16,12,8,4],[3,15,12,9,6,3],[2,10,8,6,4,2],[1,5,4,3,2,1]];
+  let matrixT = '<table class="pr-matrix"><tr><td style="background:#222;color:#fff;">O \\ Ş</td><th>5 Çok Ciddi</th><th>4 Ciddi</th><th>3 Orta</th><th>2 Hafif</th><th>1 Çok Hafif</th></tr>';
+  const olasiklar=[5,4,3,2,1];
+  grid.forEach((row,i)=>{
+    matrixT += '<tr><th>'+olasiklar[i]+'</th>';
+    row.slice(1).forEach(v=>{ const lv=seviye(v); matrixT += '<td style="background:'+lv.hexbg+';">'+v+'</td>'; });
+    matrixT += '</tr>';
+  });
+  matrixT += '</table>';
+
+  let rows = '';
+  p.satirlar.slice().sort((a,b)=>a.rk-b.rk).forEach(s=>{
+    const n = s.etkilenenler.length;
+    s.etkilenenler.forEach((e,i)=>{
+      const rs = e.olasilik*e.siddet; const lv = seviye(rs);
+      rows += '<tr>';
+      if(i===0){
+        rows += '<td rowspan="'+n+'">'+s.rk+'</td>';
+        rows += '<td rowspan="'+n+'">'+esc(s.tehlike)+'</td>';
+        rows += '<td rowspan="'+n+'">'+esc(s.risk)+'</td>';
+      }
+      rows += '<td>'+esc(e.grup)+'</td>';
+      rows += '<td style="text-align:center;">'+e.olasilik+'</td>';
+      rows += '<td style="text-align:center;">'+e.siddet+'</td>';
+      rows += '<td class="pr-rs" style="background:'+lv.hexbg+';">'+rs+'</td>';
+      if(i===0){
+        rows += '<td rowspan="'+n+'">'+esc(s.onlemler)+'</td>';
+      }
+      rows += '</tr>';
+    });
+  });
+
+  const html =
+    '<div class="pr-page">'+
+      '<div class="pr-header">'+
+        '<div><h1>Risk Değerlendirme Formu — L Tipi Matris</h1><div class="sub">'+esc(p.kurum)+' · Birim/Faaliyet: '+esc(p.isim)+'</div></div>'+
+        '<div class="dates">Oluşturma: '+fmtDate(p.olusturma)+'<br>Güncelleme: '+fmtDate(p.guncelleme)+'</div>'+
+      '</div>'+
+      matrixT+
+      '<div class="pr-legend">'+
+        '<span><i style="background:#FAE1DB;"></i>15–25 Yüksek Risk</span>'+
+        '<span><i style="background:#FBF0D8;"></i>8–12 Orta Risk</span>'+
+        '<span><i style="background:#E6EEE3;"></i>1–6 Düşük Risk</span>'+
+      '</div>'+
+      '<table class="pr-data"><thead><tr>'+
+        '<th style="width:26px;">RK</th><th>Tehlike / Faaliyet</th><th>Risk</th><th>Etkilenenler</th>'+
+        '<th style="width:20px;">O</th><th style="width:20px;">Ş</th><th style="width:26px;">RS</th><th>Alınması Gereken Önlemler</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table>'+
+    '</div>';
+
+  document.getElementById('printArea').innerHTML = html;
+  setTimeout(()=>{ window.print(); }, 80);
+}
+
+/* ---------------- YEDEKLEME: DIŞA AKTAR / İÇE AKTAR ---------------- */
+function openBackupModal(){
+  openModal(
+    '<div class="modal-title">Yedekle <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Tüm birimleri ve risk kayıtlarını tek bir dosyaya indir. İndirilen dosyayı telefonundaki kaydetme ekranından <b>iCloud Sürücü</b> veya <b>Google Drive</b> içine koyabilirsin. Aynı dosyayı buradan geri yükleyerek verilerini başka bir cihaza / hesaba taşıyabilirsin.</div>'+
+    '<button class="btn primary block" onclick="exportAllData()" style="margin-bottom:10px;">⬇️ Tüm Verileri Dışa Aktar (.json)</button>'+
+    '<button class="btn ghost block" onclick="document.getElementById(\'restoreFile\').click()">⬆️ Yedekten Geri Yükle</button>'+
+    '<input type="file" id="restoreFile" accept="application/json,.json" style="display:none" onchange="importAllData(event)">'+
+    '<div class="helper">Geri yükleme, dosyadaki birimleri mevcut listenle birleştirir (aynı isimde bile olsa üzerine yazmaz, ayrı birim olarak eklenmez — id eşleşirse günceller, eşleşmezse yeni ekler). Emin olmadığın dosyalarla geri yükleme yapma.</div>'
+  );
+}
+
+async function exportAllData(){
+  const bundle = { tip:'saha-risk-kaydi-yedek', versiyon:1, olusturma:nowIso(), index: state.index, projeler:{} };
+  for(const p of state.index){
+    const full = await storageGet('proje_'+p.id);
+    if(full) bundle.projeler[p.id] = full;
+  }
+  const blob = new Blob([JSON.stringify(bundle,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  a.href = url; a.download = 'risk-kayit-yedek-'+ts+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  showToast('Yedek indirildi — kaydetme ekranından iCloud/Drive seçebilirsin');
+}
+
+function importAllData(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    let data;
+    try{ data = JSON.parse(e.target.result); }
+    catch(err){ showToast('Dosya okunamadı: geçersiz JSON'); return; }
+    if(!data || data.tip!=='saha-risk-kaydi-yedek' || !data.projeler){
+      showToast('Bu bir yedek dosyası değil'); return;
+    }
+    let eklenen=0, guncellenen=0;
+    for(const pid in data.projeler){
+      const proj = data.projeler[pid];
+      const varMi = state.index.find(x=>x.id===pid);
+      await storageSet('proje_'+pid, proj);
+      if(varMi){
+        varMi.isim=proj.isim; varMi.guncelleme=proj.guncelleme;
+        varMi.riskSayisi=proj.satirlar.length;
+        varMi.yuksekSayisi=countByLevel(proj,'high'); varMi.ortaSayisi=countByLevel(proj,'med');
+        guncellenen++;
+      } else {
+        state.index.push({id:pid, isim:proj.isim, guncelleme:proj.guncelleme,
+          riskSayisi:proj.satirlar.length, yuksekSayisi:countByLevel(proj,'high'), ortaSayisi:countByLevel(proj,'med')});
+        eklenen++;
+      }
+    }
+    await saveIndex();
+    closeModal();
+    showToast(eklenen+' yeni, '+guncellenen+' güncellenen birim yüklendi');
+    goHome();
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+/* ---------------- INIT ---------------- */
+async function init(){
+  await loadIndex();
+  renderAppbar();
+  renderHome();
+}
+init();
+</script>
+</body>
+</html>
