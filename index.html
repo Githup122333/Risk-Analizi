@@ -404,6 +404,7 @@ function renderAppbar(){
       '<div class="appbar-row">'+
         '<div style="flex:1; min-width:0;"><div class="appbar-title display">Saha Risk Kaydı</div>'+
         '<div class="appbar-sub">İSG · Birim Bazlı Değerlendirme</div></div>'+
+        '<button class="icon-btn" onclick="openBookDateModal()" title="Kitap Başlangıç Tarihi">📅</button>'+
         '<button class="icon-btn" onclick="openAiSettingsModal()" title="AI Ayarları">🤖</button>'+
         '<button class="icon-btn" onclick="openBackupModal()">⇅</button>'+
       '</div>';
@@ -484,29 +485,23 @@ function openNewProjectModal(){
     '<input type="text" id="npIsim" placeholder="Örn. Yoğun Bakım Ünitesi"></div>'+
     '<div class="field"><label>Kurum Adı</label>'+
     '<input type="text" id="npKurum" value="SBÜ. Van Bölge Eğitim ve Araştırma Hastanesi"></div>'+
-    '<div class="field"><label>Oluşturma Tarihi</label>'+
-    '<input type="date" id="npOlusturma" value="'+todayStr()+'" oninput="updateNpPreview()"></div>'+
-    '<div class="field"><label>Yenileme Süresi</label>'+
-    '<select id="npYenileme" onchange="updateNpPreview()">'+yenilemeOptionsHtml(2)+'</select></div>'+
-    '<div class="helper" id="npOnizleme">Yenileme tarihi: —</div>'+
+    '<div class="field"><label>Yenileme Süresi (Tehlike Sınıfı)</label>'+
+    '<select id="npYenileme">'+yenilemeOptionsHtml(2)+'</select></div>'+
+    '<div class="helper">Başlangıç tarihini şimdi girmene gerek yok — tüm birimler bittiğinde, ana ekrandaki 📅 ikonundan tek bir tarihi hepsine birden uygulayabilirsin.</div>'+
     '<div class="modal-btn-row" style="margin-top:14px;">'+
       '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
       '<button class="btn primary" onclick="createProject()">Oluştur</button>'+
     '</div>'
   );
-  setTimeout(()=>{ document.getElementById('npIsim').focus(); updateNpPreview(); },80);
-}
-function updateNpPreview(){
-  const o = document.getElementById('npOlusturma').value;
-  const y = document.getElementById('npYenileme').value;
-  document.getElementById('npOnizleme').textContent = 'Yenileme tarihi: '+fmtDateOnly(addYears(o,y));
+  setTimeout(()=>document.getElementById('npIsim').focus(),80);
 }
 async function createProject(){
   const isim = document.getElementById('npIsim').value.trim();
   const kurum = document.getElementById('npKurum').value.trim();
-  const olusturma = document.getElementById('npOlusturma').value || todayStr();
   const yenilemeYili = parseInt(document.getElementById('npYenileme').value,10)||2;
   if(!isim){ showToast('Birim adı boş olamaz'); return; }
+  const kitapTarihi = await storageGet('kitap_baslangic_tarihi');
+  const olusturma = kitapTarihi || todayStr();
   const guncelleme = addYears(olusturma, yenilemeYili);
   const p = { id:uid(), isim, kurum:kurum||'—', olusturma, yenilemeYili, guncelleme, sonAktivite:nowIso(), sonRK:0, satirlar:[] };
   state.index.push({id:p.id, isim:p.isim, guncelleme:p.guncelleme, sonAktivite:p.sonAktivite, riskSayisi:0, yuksekSayisi:0, ortaSayisi:0});
@@ -727,7 +722,7 @@ function openEntryForm(existingId){
     const s = p.satirlar.find(x=>x.id===existingId);
     formTemp = JSON.parse(JSON.stringify(s));
   } else {
-    formTemp = { id:null, tehlike:'', risk:'', onlemler:'', durum:'yapilmadi', notlar:'', etkilenenler:[ {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3} ] };
+    formTemp = { id:null, tehlike:'', risk:'', onlemler:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:[ {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3} ] };
   }
   renderEntryForm();
 }
@@ -743,6 +738,10 @@ function renderEntryForm(){
       '<input type="text" id="fTehlike" placeholder="Örn. Islak zeminde çalışma" value="'+esc(t.tehlike)+'"></div>'+
     '<div class="field"><label>Risk (Olası Sonuç)</label>'+
       '<input type="text" id="fRisk" placeholder="Örn. Düşme, yaralanma" value="'+esc(t.risk)+'"></div>'+
+    '<div class="field"><label>AI İçin Ek Bağlam (opsiyonel)</label>'+
+      '<textarea id="fBaglam" placeholder="Tehlike ve Risk kutularını kısa tut; gördüğün durumu detaylıca buraya anlat. Bu kutu sadece AI önerisi için kullanılır, karta veya PDF\'e basılmaz.">'+esc(t.aiBaglam||'')+'</textarea>'+
+      '<div class="helper">Örn: \'Çatı katına çıktım, elektrik panosunun yanındaki kablolar açıkta ve yıpranmış, üzerinde tozlanma var, yakınında yanıcı malzeme kutuları duruyordu.\'</div>'+
+    '</div>'+
     '<div class="subhead"><h4>Etkilenenler</h4><button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button></div>'+
     '<div id="etkList">'+etkHtml+'</div>'+
     '<div class="field" style="margin-top:14px;">'+
@@ -786,7 +785,7 @@ function etkRowHtml(e,i){
   return '<div class="etk-form-row" data-idx="'+i+'">'+
     '<div class="etk-form-grid">'+
       '<div><label>Etkilenen Grup</label><select onchange="onEtkGrupChange('+i+',this.value)">'+opts+'</select>'+
-        (custom ? '<input type="text" id="custom-'+i+'" style="display:block; margin-top:6px;" value="'+(e.grup==='Diğer'?'':esc(e.grup))+'" placeholder="Grup adını yaz" oninput="updateEtk('+i+',\'grup\',this.value)">' : '<input type="text" id="custom-'+i+'" style="display:none; margin-top:6px;" placeholder="Grup adını yaz" oninput="updateEtk('+i+',\'grup\',this.value)">')+
+        (custom ? '<input type="text" id="custom-'+i+'" style="display:block; margin-top:6px;" value="'+(e.grup==='Diğer'?'':esc(e.grup))+'" placeholder="Grup adını yaz" oninput="updateEtkGrupSilent('+i+',this.value)">' : '<input type="text" id="custom-'+i+'" style="display:none; margin-top:6px;" placeholder="Grup adını yaz" oninput="updateEtkGrupSilent('+i+',this.value)">')+
       '</div>'+
       '<div><label>O</label><select onchange="updateEtk('+i+',\'olasilik\',this.value)">'+oOpts+'</select></div>'+
       '<div><label>Ş</label><select onchange="updateEtk('+i+',\'siddet\',this.value)">'+sOpts+'</select></div>'+
@@ -806,6 +805,9 @@ function onEtkGrupChange(i,val){
     updateEtk(i,'grup',val);
   }
 }
+function updateEtkGrupSilent(i, val){
+  if(formTemp.etkilenenler[i]) formTemp.etkilenenler[i].grup = val;
+}
 function addEtkRow(){
   formTemp.etkilenenler.push({id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3});
   refreshEtkList();
@@ -824,6 +826,7 @@ function refreshEtkList(){
   const tehlike = document.getElementById('fTehlike'); if(tehlike) formTemp.tehlike = tehlike.value;
   const risk = document.getElementById('fRisk'); if(risk) formTemp.risk = risk.value;
   const onlem = document.getElementById('fOnlem'); if(onlem) formTemp.onlemler = onlem.value;
+  const baglam = document.getElementById('fBaglam'); if(baglam) formTemp.aiBaglam = baglam.value;
   const durum = document.getElementById('fDurum'); if(durum) formTemp.durum = durum.value;
   const not_ = document.getElementById('fNot'); if(not_) formTemp.notlar = not_.value;
   renderEntryForm();
@@ -834,6 +837,7 @@ async function saveEntry(){
   const onlemler = document.getElementById('fOnlem').value.trim();
   const durum = document.getElementById('fDurum').value;
   const notlar = document.getElementById('fNot').value.trim();
+  const aiBaglam = document.getElementById('fBaglam').value.trim();
   if(!tehlike || !risk){ showToast('Tehlike ve Risk alanları zorunlu'); return; }
   if(!formTemp.etkilenenler.length){ showToast('En az bir etkilenen grubu ekle'); return; }
   const bad = formTemp.etkilenenler.some(e=>!e.grup || !e.grup.trim() || e.grup==='Diğer');
@@ -842,16 +846,51 @@ async function saveEntry(){
   const p = state.project;
   if(formTemp.id){
     const idx = p.satirlar.findIndex(s=>s.id===formTemp.id);
-    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, onlemler, durum, notlar, etkilenenler:formTemp.etkilenenler};
+    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, onlemler, durum, notlar, aiBaglam, etkilenenler:formTemp.etkilenenler};
   } else {
     p.sonRK = (p.sonRK||0)+1;
-    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, onlemler, durum, notlar, etkilenenler:formTemp.etkilenenler});
+    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, onlemler, durum, notlar, aiBaglam, etkilenenler:formTemp.etkilenenler});
   }
   await saveProject(p);
   closeModal();
   showToast('Risk kaydedildi');
   renderAppbar();
   renderProject();
+}
+
+/* ---------------- KİTAP BAŞLANGIÇ TARİHİ (TÜM BİRİMLERE TOPLU UYGULAMA) ---------------- */
+async function openBookDateModal(){
+  const kayitli = await storageGet('kitap_baslangic_tarihi');
+  openModal(
+    '<div class="modal-title">Kitap Başlangıç Tarihi <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Tüm birimler için tek, ortak bir başlangıç (Oluşturma) tarihi belirle. Uyguladığında bu tarih <b>her birime</b> yazılır; her birimin Yenileme tarihi de kendi yenileme süresine (2/4/6 yıl) göre bu tarihten yeniden hesaplanır. Birimlerin kendi yenileme süreleri değişmez, sadece başlangıç tarihleri ortaklaşır.</div>'+
+    '<div class="field"><label>Başlangıç Tarihi</label><input type="date" id="bookDateInput" value="'+(kayitli||todayStr())+'"></div>'+
+    '<div class="helper">Bu işlem, o an var olan <b>tüm</b> birimlerin Oluşturma ve Yenileme tarihini günceller. Kitap bittiğinde (son birimi de girdikten sonra) bir kez çalıştırman yeterli; istersen sonra tekrar da çalıştırabilirsin.</div>'+
+    '<div class="modal-btn-row" style="margin-top:14px;">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn primary" onclick="applyBookDate()">Tüm Birimlere Uygula</button>'+
+    '</div>'
+  );
+}
+async function applyBookDate(){
+  const tarih = document.getElementById('bookDateInput').value;
+  if(!tarih){ showToast('Tarih boş olamaz'); return; }
+  await storageSet('kitap_baslangic_tarihi', tarih);
+  let sayac = 0;
+  for(const entry of state.index){
+    const proj = await storageGet('proje_'+entry.id);
+    if(!proj) continue;
+    proj.olusturma = tarih;
+    proj.guncelleme = addYears(tarih, proj.yenilemeYili||2);
+    await storageSet('proje_'+proj.id, proj);
+    entry.guncelleme = proj.guncelleme;
+    sayac++;
+  }
+  await saveIndex();
+  if(state.project){ await loadProject(state.project.id); }
+  closeModal();
+  showToast(sayac+' birime tarih uygulandı');
+  if(state.view==='project'){ renderAppbar(); renderProject(); } else { renderHome(); }
 }
 
 /* ---------------- AI ÖNERİ (ÖNLEMLER) ---------------- */
@@ -905,13 +944,14 @@ async function removeAiKey(){
 async function aiSuggestOnlem(){
   const tehlike = document.getElementById('fTehlike').value.trim();
   const risk = document.getElementById('fRisk').value.trim();
+  const baglam = document.getElementById('fBaglam').value.trim();
   if(!tehlike || !risk){ showToast('Önce Tehlike/Faaliyet ve Risk alanlarını doldur'); return; }
   const btn = document.getElementById('aiSuggestBtn');
   const eski = btn.textContent;
   btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
   try{
     const etkGrupStr = formTemp.etkilenenler.map(e=>e.grup).filter(Boolean).join(', ');
-    const metin = await callClaudeOnlem(tehlike, risk, etkGrupStr);
+    const metin = await callClaudeOnlem(tehlike, risk, etkGrupStr, baglam);
     document.getElementById('fOnlem').value = metin;
     formTemp.onlemler = metin;
     showToast('AI önerisi eklendi — istersen düzenleyebilirsin');
@@ -922,9 +962,9 @@ async function aiSuggestOnlem(){
   }
 }
 
-async function callClaudeOnlem(tehlike, risk, etkGrupStr){
+async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
   const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Alınması Gereken Önlemler' metni üret. Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme. Madde imi/numaralama kullanma, akıcı kısa cümlelerle, 3-6 cümle uzunluğunda yaz.";
-  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+"\n\nBu tehlike ve risk için alınması gereken önlemleri yaz.";
+  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için alınması gereken önlemleri yaz.";
   let model = 'claude-sonnet-4-6';
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
