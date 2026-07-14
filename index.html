@@ -951,10 +951,14 @@ async function aiSuggestOnlem(){
   btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
   try{
     const etkGrupStr = formTemp.etkilenenler.map(e=>e.grup).filter(Boolean).join(', ');
-    const metin = await callClaudeOnlem(tehlike, risk, etkGrupStr, baglam);
-    document.getElementById('fOnlem').value = metin;
-    formTemp.onlemler = metin;
-    showToast('AI önerisi eklendi — istersen düzenleyebilirsin');
+    const sonuc = await callClaudeOnlem(tehlike, risk, etkGrupStr, baglam);
+    document.getElementById('fOnlem').value = sonuc.text;
+    formTemp.onlemler = sonuc.text;
+    if(sonuc.kesildi){
+      showToast('Öneri eklendi, ama uzun olduğu için yine de kesilmiş olabilir — kontrol et');
+    } else {
+      showToast('AI önerisi eklendi — istersen düzenleyebilirsin');
+    }
   } catch(err){
     showToast('AI önerisi alınamadı: '+err.message);
   } finally {
@@ -963,7 +967,7 @@ async function aiSuggestOnlem(){
 }
 
 async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Alınması Gereken Önlemler' metni üret. Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme. Madde imi/numaralama kullanma, akıcı kısa cümlelerle, 3-6 cümle uzunluğunda yaz.";
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Alınması Gereken Önlemler' metni üret. Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme, madde imi/numaralama kullanma. Uzunluğu konunun karmaşıklığına göre kendin ayarla: basit/tek boyutlu bir tehlike için 3-4 kısa cümle yeterlidir; ATEX, patlayıcı ortam, kimyasal, çok sistemli teknik tehlikeler gibi çok yönlü konularda 6-9 cümleye kadar çıkabilirsin. Her cümle yeni ve somut bir önlem içermeli, gereksiz tekrar veya dolgu cümle kullanma. Cevabını mutlaka tam bir cümleyle bitir, yarım bırakma.";
   const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için alınması gereken önlemleri yaz.";
   let model = 'claude-sonnet-4-6';
   const headers = {"content-type":"application/json"};
@@ -976,17 +980,26 @@ async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
     headers['anthropic-version'] = '2023-06-01';
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
   }
-  const gövde = { model, max_tokens: 400, system: sistem, messages: [{role:"user", content:kullanici}] };
-  const res = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', headers, body:JSON.stringify(gövde)});
-  if(!res.ok){
-    let msg = 'API hatası ('+res.status+')';
-    try{ const j = await res.json(); if(j.error && j.error.message) msg = j.error.message; }catch(e){}
-    throw new Error(msg);
+
+  async function istekYap(maxTok){
+    const gövde = { model, max_tokens: maxTok, system: sistem, messages: [{role:"user", content:kullanici}] };
+    const res = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', headers, body:JSON.stringify(gövde)});
+    if(!res.ok){
+      let msg = 'API hatası ('+res.status+')';
+      try{ const j = await res.json(); if(j.error && j.error.message) msg = j.error.message; }catch(e){}
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    const textBlock = (data.content||[]).find(c=>c.type==='text');
+    if(!textBlock || !textBlock.text) throw new Error('Yanıt alınamadı');
+    return { text: textBlock.text.trim(), kesildi: data.stop_reason === 'max_tokens' };
   }
-  const data = await res.json();
-  const textBlock = (data.content||[]).find(c=>c.type==='text');
-  if(!textBlock || !textBlock.text) throw new Error('Yanıt alınamadı');
-  return textBlock.text.trim();
+
+  let sonuc = await istekYap(700);
+  if(sonuc.kesildi){
+    sonuc = await istekYap(1400); // yarıda kesildiyse, çok daha geniş limitle bir kez daha dene
+  }
+  return sonuc;
 }
 
 /* ---------------- PDF / PRINT EXPORT ---------------- */
