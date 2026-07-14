@@ -293,6 +293,13 @@ const DURUMLAR = {
 };
 function durumBilgi(key){ return DURUMLAR[key] || DURUMLAR.yapilmadi; }
 
+const AI_MODELS = {
+  'claude-haiku-4-5-20251001': {label:'Haiku 4.5', hint:'En hızlı ve en ucuz — basit/rutin öneriler için yeterli'},
+  'claude-sonnet-5':           {label:'Sonnet 5',  hint:'Dengeli — genel kullanım için önerilir'},
+  'claude-opus-4-8':           {label:'Opus 4.8',  hint:'En güçlü — karmaşık/kritik tehlikelerde dene'},
+  'claude-fable-5':            {label:'Fable 5',   hint:'En üst segment — en pahalı, nadiren gerekir'}
+};
+
 let state = { view:'home', projectId:null, expanded:{}, matrixOpen:false, project:null, index:[] };
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -397,6 +404,7 @@ function renderAppbar(){
       '<div class="appbar-row">'+
         '<div style="flex:1; min-width:0;"><div class="appbar-title display">Saha Risk Kaydı</div>'+
         '<div class="appbar-sub">İSG · Birim Bazlı Değerlendirme</div></div>'+
+        '<button class="icon-btn" onclick="openAiSettingsModal()" title="AI Ayarları">🤖</button>'+
         '<button class="icon-btn" onclick="openBackupModal()">⇅</button>'+
       '</div>';
   } else {
@@ -737,8 +745,16 @@ function renderEntryForm(){
       '<input type="text" id="fRisk" placeholder="Örn. Düşme, yaralanma" value="'+esc(t.risk)+'"></div>'+
     '<div class="subhead"><h4>Etkilenenler</h4><button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button></div>'+
     '<div id="etkList">'+etkHtml+'</div>'+
-    '<div class="field" style="margin-top:14px;"><label>Alınması Gereken Önlemler</label>'+
-      '<textarea id="fOnlem" placeholder="Uygulanacak önlemleri yaz...">'+esc(t.onlemler)+'</textarea></div>'+
+    '<div class="field" style="margin-top:14px;">'+
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px;">'+
+        '<label style="margin-bottom:0;">Alınması Gereken Önlemler</label>'+
+        '<button type="button" id="aiSuggestBtn" class="btn ghost sm" onclick="aiSuggestOnlem()" style="flex-shrink:0;">🤖 AI Öner</button>'+
+      '</div>'+
+      (HAS_CLOUD_STORAGE ? '' : '<select id="aiModelPick" style="margin-bottom:8px; padding:6px 8px; font-size:12px;">'+
+        Object.keys(AI_MODELS).map(m=>'<option value="'+m+'">'+AI_MODELS[m].label+'</option>').join('')+
+      '</select>')+
+      '<textarea id="fOnlem" placeholder="Uygulanacak önlemleri yaz... veya yukarıdan AI Öner butonuna dokun">'+esc(t.onlemler)+'</textarea>'+
+    '</div>'+
     '<div class="field"><label>Durum</label><select id="fDurum">'+
       Object.keys(DURUMLAR).map(k=>'<option value="'+k+'" '+((t.durum||'yapilmadi')===k?'selected':'')+'>'+DURUMLAR[k].label+'</option>').join('')+
     '</select></div>'+
@@ -749,6 +765,12 @@ function renderEntryForm(){
       '<button class="btn primary" onclick="saveEntry()">Kaydet</button>'+
     '</div>';
   openModal(html);
+  if(!HAS_CLOUD_STORAGE){
+    storageGet('ai_model').then(function(m){
+      const sel = document.getElementById('aiModelPick');
+      if(sel && m) sel.value = m;
+    });
+  }
 }
 function etkRowHtml(e,i){
   const rs = e.olasilik*e.siddet; const lv = seviye(rs);
@@ -830,6 +852,101 @@ async function saveEntry(){
   showToast('Risk kaydedildi');
   renderAppbar();
   renderProject();
+}
+
+/* ---------------- AI ÖNERİ (ÖNLEMLER) ---------------- */
+async function openAiSettingsModal(){
+  const key = await storageGet('ai_api_key');
+  const savedModel = (await storageGet('ai_model')) || 'claude-sonnet-5';
+  const masked = key ? (String(key).slice(0,10)+'••••••••'+String(key).slice(-4)) : null;
+  const modelOptsHtml = Object.keys(AI_MODELS).map(m=>'<option value="'+m+'" '+(m===savedModel?'selected':'')+'>'+AI_MODELS[m].label+'</option>').join('');
+  let body;
+  if(HAS_CLOUD_STORAGE){
+    body = '<div class="helper">Bu uygulamayı Claude ortamı içinde çalıştırıyorsun — API anahtarına gerek yok, "AI Öner" butonu otomatik çalışır (sabit model kullanılır).</div>';
+  } else {
+    body =
+      '<div class="field"><label>Anthropic API Anahtarı</label>'+
+      '<input type="text" id="aiKeyInput" placeholder="sk-ant-api03-..." value="'+(key?esc(key):'')+'"></div>'+
+      (masked ? '<div class="helper">Kayıtlı anahtar: '+masked+'</div>' : '')+
+      '<div class="field"><label>Varsayılan Model</label>'+
+      '<select id="aiModelDefault">'+modelOptsHtml+'</select></div>'+
+      '<div class="helper" id="aiModelHint">'+AI_MODELS[savedModel].hint+'</div>'+
+      '<div class="helper">Anahtarı <b>console.anthropic.com</b> → API Keys üzerinden alabilirsin. Sadece bu tarayıcıda saklanır. Bu, "AI Öner" butonunun önerdiği varsayılan model — istersen risk formunda o an başka bir modeli de deneyebilirsin.</div>'+
+      '<div class="modal-btn-row" style="margin-top:14px;">'+
+        (key ? '<button class="btn danger" onclick="removeAiKey()">Anahtarı Sil</button>' : '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>')+
+        '<button class="btn primary" onclick="saveAiKey()">Kaydet</button>'+
+      '</div>';
+  }
+  openModal(
+    '<div class="modal-title">AI ile Önlem Önerisi <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Risk formunda Tehlike/Faaliyet ve Risk alanlarını doldurduktan sonra "🤖 AI Öner" butonuna dokunarak Alınması Gereken Önlemler kutusunu otomatik doldurabilirsin.</div>'+
+    body
+  );
+  if(!HAS_CLOUD_STORAGE){
+    const sel = document.getElementById('aiModelDefault');
+    if(sel) sel.addEventListener('change', function(){ document.getElementById('aiModelHint').textContent = AI_MODELS[this.value].hint; });
+  }
+}
+async function saveAiKey(){
+  const v = document.getElementById('aiKeyInput').value.trim();
+  if(!v){ showToast('Anahtar boş olamaz'); return; }
+  const model = document.getElementById('aiModelDefault').value;
+  await storageSet('ai_api_key', v);
+  await storageSet('ai_model', model);
+  closeModal();
+  showToast('API anahtarı ve model kaydedildi');
+}
+async function removeAiKey(){
+  await storageDelete('ai_api_key');
+  closeModal();
+  showToast('API anahtarı silindi');
+}
+
+async function aiSuggestOnlem(){
+  const tehlike = document.getElementById('fTehlike').value.trim();
+  const risk = document.getElementById('fRisk').value.trim();
+  if(!tehlike || !risk){ showToast('Önce Tehlike/Faaliyet ve Risk alanlarını doldur'); return; }
+  const btn = document.getElementById('aiSuggestBtn');
+  const eski = btn.textContent;
+  btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
+  try{
+    const etkGrupStr = formTemp.etkilenenler.map(e=>e.grup).filter(Boolean).join(', ');
+    const metin = await callClaudeOnlem(tehlike, risk, etkGrupStr);
+    document.getElementById('fOnlem').value = metin;
+    formTemp.onlemler = metin;
+    showToast('AI önerisi eklendi — istersen düzenleyebilirsin');
+  } catch(err){
+    showToast('AI önerisi alınamadı: '+err.message);
+  } finally {
+    btn.textContent = eski; btn.disabled = false;
+  }
+}
+
+async function callClaudeOnlem(tehlike, risk, etkGrupStr){
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Alınması Gereken Önlemler' metni üret. Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme. Madde imi/numaralama kullanma, akıcı kısa cümlelerle, 3-6 cümle uzunluğunda yaz.";
+  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+"\n\nBu tehlike ve risk için alınması gereken önlemleri yaz.";
+  let model = 'claude-sonnet-4-6';
+  const headers = {"content-type":"application/json"};
+  if(!HAS_CLOUD_STORAGE){
+    const key = await storageGet('ai_api_key');
+    if(!key) throw new Error('Önce 🤖 ikonundan API anahtarını gir');
+    const pick = document.getElementById('aiModelPick');
+    model = (pick && pick.value) || (await storageGet('ai_model')) || 'claude-sonnet-5';
+    headers['x-api-key'] = key;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+  const gövde = { model, max_tokens: 400, system: sistem, messages: [{role:"user", content:kullanici}] };
+  const res = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', headers, body:JSON.stringify(gövde)});
+  if(!res.ok){
+    let msg = 'API hatası ('+res.status+')';
+    try{ const j = await res.json(); if(j.error && j.error.message) msg = j.error.message; }catch(e){}
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  const textBlock = (data.content||[]).find(c=>c.type==='text');
+  if(!textBlock || !textBlock.text) throw new Error('Yanıt alınamadı');
+  return textBlock.text.trim();
 }
 
 /* ---------------- PDF / PRINT EXPORT ---------------- */
