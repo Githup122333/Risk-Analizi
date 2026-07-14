@@ -286,6 +286,13 @@ const ETKILENEN_GRUPLARI = [
   "Güvenlik Personeli","Hastalar","Ziyaretçiler","Tıbbi Sekreter / Otomasyon Görevlisi","Diğer"
 ];
 
+const DURUMLAR = {
+  yapilmadi: {label:'Yapılmadı', hex:'#B23B2E', hexbg:'#FAE1DB'},
+  devam:     {label:'Çalışma Devam Ediyor', hex:'#A8730C', hexbg:'#FBF0D8'},
+  yapildi:   {label:'Yapıldı', hex:'#2F7A75', hexbg:'#DCEEEC'}
+};
+function durumBilgi(key){ return DURUMLAR[key] || DURUMLAR.yapilmadi; }
+
 let state = { view:'home', projectId:null, expanded:{}, matrixOpen:false, project:null, index:[] };
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -337,11 +344,11 @@ async function loadProject(id){
   return p;
 }
 async function saveProject(p){
-  p.guncelleme = nowIso();
+  p.sonAktivite = nowIso();
   await storageSet('proje_'+p.id, p);
   const entry = state.index.find(x=>x.id===p.id);
   if(entry){
-    entry.isim = p.isim; entry.guncelleme = p.guncelleme;
+    entry.isim = p.isim; entry.guncelleme = p.guncelleme; entry.sonAktivite = p.sonAktivite;
     entry.riskSayisi = p.satirlar.length;
     entry.yuksekSayisi = countByLevel(p,'high');
     entry.ortaSayisi = countByLevel(p,'med');
@@ -399,7 +406,7 @@ function renderAppbar(){
         '<button class="icon-btn" onclick="goHome()">‹</button>'+
         '<div style="flex:1; min-width:0;">'+
           '<div class="appbar-title display">'+esc(p.isim)+'</div>'+
-          '<div class="appbar-sub">Güncelleme: '+fmtDate(p.guncelleme)+'</div>'+
+          '<div class="appbar-sub">Yenileme: '+fmtDateOnly(p.guncelleme)+' · '+(p.yenilemeYili||2)+' yıl</div>'+
         '</div>'+
         '<button class="icon-btn" onclick="openProjectMenu()">⋮</button>'+
       '</div>';
@@ -409,6 +416,23 @@ function fmtDate(iso){
   if(!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function toDateOnly(s){ if(!s) return todayStr(); return String(s).slice(0,10); }
+function addYears(dateStr, years){
+  const base = toDateOnly(dateStr);
+  const d = new Date(base+'T00:00:00');
+  d.setFullYear(d.getFullYear() + (parseInt(years,10)||2));
+  return d.toISOString().slice(0,10);
+}
+function fmtDateOnly(dateStr){
+  if(!dateStr) return '—';
+  const d = new Date(toDateOnly(dateStr)+'T00:00:00');
+  return d.toLocaleDateString('tr-TR');
+}
+function yenilemeOptionsHtml(selected){
+  const opts = [[2,'2 Yıl (Çok Tehlikeli Sınıf)'],[4,'4 Yıl (Tehlikeli Sınıf)'],[6,'6 Yıl (Az Tehlikeli Sınıf)']];
+  return opts.map(o=>'<option value="'+o[0]+'" '+(String(selected)===String(o[0])?'selected':'')+'>'+o[1]+'</option>').join('');
 }
 function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -429,7 +453,7 @@ function renderHome(){
         '<div class="proj-idx mono">'+String(i+1).padStart(2,'0')+'</div>'+
         '<div class="proj-main">'+
           '<div class="proj-name">'+esc(p.isim)+'</div>'+
-          '<div class="proj-meta">'+(p.riskSayisi||0)+' kayıt · '+fmtDate(p.guncelleme)+'</div>'+
+          '<div class="proj-meta">'+(p.riskSayisi||0)+' kayıt · '+fmtDate(p.sonAktivite||p.guncelleme)+'</div>'+
           '<div class="proj-badges">'+
             (p.yuksekSayisi ? '<span class="badge high">'+p.yuksekSayisi+' Yüksek</span>' : '')+
             (p.ortaSayisi ? '<span class="badge med">'+p.ortaSayisi+' Orta</span>' : '')+
@@ -452,19 +476,32 @@ function openNewProjectModal(){
     '<input type="text" id="npIsim" placeholder="Örn. Yoğun Bakım Ünitesi"></div>'+
     '<div class="field"><label>Kurum Adı</label>'+
     '<input type="text" id="npKurum" value="SBÜ. Van Bölge Eğitim ve Araştırma Hastanesi"></div>'+
-    '<div class="modal-btn-row">'+
+    '<div class="field"><label>Oluşturma Tarihi</label>'+
+    '<input type="date" id="npOlusturma" value="'+todayStr()+'" oninput="updateNpPreview()"></div>'+
+    '<div class="field"><label>Yenileme Süresi</label>'+
+    '<select id="npYenileme" onchange="updateNpPreview()">'+yenilemeOptionsHtml(2)+'</select></div>'+
+    '<div class="helper" id="npOnizleme">Yenileme tarihi: —</div>'+
+    '<div class="modal-btn-row" style="margin-top:14px;">'+
       '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
       '<button class="btn primary" onclick="createProject()">Oluştur</button>'+
     '</div>'
   );
-  setTimeout(()=>document.getElementById('npIsim').focus(),80);
+  setTimeout(()=>{ document.getElementById('npIsim').focus(); updateNpPreview(); },80);
+}
+function updateNpPreview(){
+  const o = document.getElementById('npOlusturma').value;
+  const y = document.getElementById('npYenileme').value;
+  document.getElementById('npOnizleme').textContent = 'Yenileme tarihi: '+fmtDateOnly(addYears(o,y));
 }
 async function createProject(){
   const isim = document.getElementById('npIsim').value.trim();
   const kurum = document.getElementById('npKurum').value.trim();
+  const olusturma = document.getElementById('npOlusturma').value || todayStr();
+  const yenilemeYili = parseInt(document.getElementById('npYenileme').value,10)||2;
   if(!isim){ showToast('Birim adı boş olamaz'); return; }
-  const p = { id:uid(), isim, kurum:kurum||'—', olusturma:nowIso(), guncelleme:nowIso(), sonRK:0, satirlar:[] };
-  state.index.push({id:p.id, isim:p.isim, guncelleme:p.guncelleme, riskSayisi:0, yuksekSayisi:0, ortaSayisi:0});
+  const guncelleme = addYears(olusturma, yenilemeYili);
+  const p = { id:uid(), isim, kurum:kurum||'—', olusturma, yenilemeYili, guncelleme, sonAktivite:nowIso(), sonRK:0, satirlar:[] };
+  state.index.push({id:p.id, isim:p.isim, guncelleme:p.guncelleme, sonAktivite:p.sonAktivite, riskSayisi:0, yuksekSayisi:0, ortaSayisi:0});
   await storageSet('proje_'+p.id, p);
   await saveIndex();
   closeModal();
@@ -519,17 +556,32 @@ function openRenameModal(){
     '<div class="modal-title">Birimi Düzenle <span class="x" onclick="closeModal()">✕</span></div>'+
     '<div class="field"><label>Birim / Faaliyet Adı</label><input type="text" id="rnIsim" value="'+esc(p.isim)+'"></div>'+
     '<div class="field"><label>Kurum Adı</label><input type="text" id="rnKurum" value="'+esc(p.kurum)+'"></div>'+
-    '<div class="modal-btn-row">'+
+    '<div class="field"><label>Oluşturma Tarihi</label>'+
+    '<input type="date" id="rnOlusturma" value="'+toDateOnly(p.olusturma)+'" oninput="updateRnPreview()"></div>'+
+    '<div class="field"><label>Yenileme Süresi</label>'+
+    '<select id="rnYenileme" onchange="updateRnPreview()">'+yenilemeOptionsHtml(p.yenilemeYili||2)+'</select></div>'+
+    '<div class="helper" id="rnOnizleme">Yenileme tarihi: '+fmtDateOnly(p.guncelleme)+'</div>'+
+    '<div class="modal-btn-row" style="margin-top:14px;">'+
       '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
       '<button class="btn primary" onclick="saveRename()">Kaydet</button>'+
     '</div>'
   );
 }
+function updateRnPreview(){
+  const o = document.getElementById('rnOlusturma').value;
+  const y = document.getElementById('rnYenileme').value;
+  document.getElementById('rnOnizleme').textContent = 'Yenileme tarihi: '+fmtDateOnly(addYears(o,y));
+}
 async function saveRename(){
   const isim = document.getElementById('rnIsim').value.trim();
   const kurum = document.getElementById('rnKurum').value.trim();
+  const olusturma = document.getElementById('rnOlusturma').value || todayStr();
+  const yenilemeYili = parseInt(document.getElementById('rnYenileme').value,10)||2;
   if(!isim){ showToast('Birim adı boş olamaz'); return; }
   state.project.isim = isim; state.project.kurum = kurum||'—';
+  state.project.olusturma = olusturma;
+  state.project.yenilemeYili = yenilemeYili;
+  state.project.guncelleme = addYears(olusturma, yenilemeYili);
   await saveProject(state.project);
   closeModal();
   renderAppbar(); renderProject();
@@ -597,6 +649,7 @@ function matrixPanelHtml(){
 function rkCardHtml(s){
   const maxRs = Math.max(0,...s.etkilenenler.map(e=>e.olasilik*e.siddet));
   const lv = seviye(maxRs);
+  const durum = durumBilgi(s.durum);
   const open = !!state.expanded[s.id];
   let html = '<div class="rk-card">'+
     '<div class="rk-head" onclick="toggleExpand(\''+s.id+'\')">'+
@@ -605,6 +658,7 @@ function rkCardHtml(s){
         '<div class="rk-tehlike">'+esc(s.tehlike)+'</div>'+
         '<div class="rk-risk">'+esc(s.risk)+'</div>'+
         '<div class="rk-chips">'+
+          '<span class="chip" style="background:'+durum.hexbg+'; color:'+durum.hex+'; border-color:'+durum.hexbg+';">'+durum.label+'</span>'+
           '<span class="chip">'+s.etkilenenler.length+' etkilenen grubu</span>'+
           '<span class="chip">RS max '+maxRs+'</span>'+
         '</div>'+
@@ -623,6 +677,9 @@ function rkCardHtml(s){
       '</div>';
     });
     html += '<div class="onlem-box"><div class="onlem-label">Alınması Gereken Önlemler</div>'+esc(s.onlemler)+'</div>';
+    if(s.notlar){
+      html += '<div class="onlem-box"><div class="onlem-label">Takip Notu</div>'+esc(s.notlar)+'</div>';
+    }
     html += '<div class="rk-actions">'+
       '<button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation(); openEntryForm(\''+s.id+'\')">✏️ Düzenle</button>'+
       '<button class="btn danger sm" style="flex:1" onclick="event.stopPropagation(); confirmDeleteRow(\''+s.id+'\')">🗑 Sil</button>'+
@@ -662,7 +719,7 @@ function openEntryForm(existingId){
     const s = p.satirlar.find(x=>x.id===existingId);
     formTemp = JSON.parse(JSON.stringify(s));
   } else {
-    formTemp = { id:null, tehlike:'', risk:'', onlemler:'', etkilenenler:[ {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3} ] };
+    formTemp = { id:null, tehlike:'', risk:'', onlemler:'', durum:'yapilmadi', notlar:'', etkilenenler:[ {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3} ] };
   }
   renderEntryForm();
 }
@@ -682,6 +739,11 @@ function renderEntryForm(){
     '<div id="etkList">'+etkHtml+'</div>'+
     '<div class="field" style="margin-top:14px;"><label>Alınması Gereken Önlemler</label>'+
       '<textarea id="fOnlem" placeholder="Uygulanacak önlemleri yaz...">'+esc(t.onlemler)+'</textarea></div>'+
+    '<div class="field"><label>Durum</label><select id="fDurum">'+
+      Object.keys(DURUMLAR).map(k=>'<option value="'+k+'" '+((t.durum||'yapilmadi')===k?'selected':'')+'>'+DURUMLAR[k].label+'</option>').join('')+
+    '</select></div>'+
+    '<div class="field"><label>Takip Notu (opsiyonel)</label>'+
+      '<textarea id="fNot" placeholder="İlerleme, tarih, kim yaptı vb...">'+esc(t.notlar||'')+'</textarea></div>'+
     '<div class="modal-btn-row">'+
       '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
       '<button class="btn primary" onclick="saveEntry()">Kaydet</button>'+
@@ -690,18 +752,19 @@ function renderEntryForm(){
 }
 function etkRowHtml(e,i){
   const rs = e.olasilik*e.siddet; const lv = seviye(rs);
-  const custom = !ETKILENEN_GRUPLARI.includes(e.grup);
+  const custom = !ETKILENEN_GRUPLARI.includes(e.grup) || e.grup==='Diğer';
   let opts = '';
-  ETKILENEN_GRUPLARI.forEach(g=>{
-    opts += '<option value="'+esc(g)+'" '+(e.grup===g?'selected':'')+'>'+g+'</option>';
+  ETKILENEN_GRUPLARI.filter(g=>g!=='Diğer').forEach(g=>{
+    opts += '<option value="'+esc(g)+'" '+(!custom && e.grup===g?'selected':'')+'>'+g+'</option>';
   });
+  opts += '<option value="Diğer" '+(custom?'selected':'')+'>Diğer (manuel yaz)</option>';
   let sel = [1,2,3,4,5];
   const oOpts = sel.map(n=>'<option value="'+n+'" '+(e.olasilik==n?'selected':'')+'>'+n+'</option>').join('');
   const sOpts = sel.map(n=>'<option value="'+n+'" '+(e.siddet==n?'selected':'')+'>'+n+'</option>').join('');
   return '<div class="etk-form-row" data-idx="'+i+'">'+
     '<div class="etk-form-grid">'+
-      '<div><label>Etkilenen Grup</label><select onchange="updateEtk('+i+',\'grup\',this.value); if(this.value===\'Diğer\'){document.getElementById(\'custom-\'+'+i+').style.display=\'block\';}">'+opts+'</select>'+
-        (custom ? '<input type="text" id="custom-'+i+'" style="margin-top:6px;" value="'+esc(e.grup)+'" placeholder="Grup adı yaz" oninput="updateEtk('+i+',\'grup\',this.value)">' : '<input type="text" id="custom-'+i+'" style="display:none; margin-top:6px;" placeholder="Grup adı yaz" oninput="updateEtk('+i+',\'grup\',this.value)">')+
+      '<div><label>Etkilenen Grup</label><select onchange="onEtkGrupChange('+i+',this.value)">'+opts+'</select>'+
+        (custom ? '<input type="text" id="custom-'+i+'" style="display:block; margin-top:6px;" value="'+(e.grup==='Diğer'?'':esc(e.grup))+'" placeholder="Grup adını yaz" oninput="updateEtk('+i+',\'grup\',this.value)">' : '<input type="text" id="custom-'+i+'" style="display:none; margin-top:6px;" placeholder="Grup adını yaz" oninput="updateEtk('+i+',\'grup\',this.value)">')+
       '</div>'+
       '<div><label>O</label><select onchange="updateEtk('+i+',\'olasilik\',this.value)">'+oOpts+'</select></div>'+
       '<div><label>Ş</label><select onchange="updateEtk('+i+',\'siddet\',this.value)">'+sOpts+'</select></div>'+
@@ -711,6 +774,15 @@ function etkRowHtml(e,i){
     '</div>'+
     (formTemp.etkilenenler.length>1 ? '<div class="etk-remove"><button onclick="removeEtkRow('+i+')">Bu grubu kaldır ✕</button></div>' : '')+
   '</div>';
+}
+function onEtkGrupChange(i,val){
+  if(val==='Diğer'){
+    formTemp.etkilenenler[i].grup = 'Diğer';
+    refreshEtkList();
+    setTimeout(()=>{ const el=document.getElementById('custom-'+i); if(el) el.focus(); },50);
+  } else {
+    updateEtk(i,'grup',val);
+  }
 }
 function addEtkRow(){
   formTemp.etkilenenler.push({id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3});
@@ -730,24 +802,28 @@ function refreshEtkList(){
   const tehlike = document.getElementById('fTehlike'); if(tehlike) formTemp.tehlike = tehlike.value;
   const risk = document.getElementById('fRisk'); if(risk) formTemp.risk = risk.value;
   const onlem = document.getElementById('fOnlem'); if(onlem) formTemp.onlemler = onlem.value;
+  const durum = document.getElementById('fDurum'); if(durum) formTemp.durum = durum.value;
+  const not_ = document.getElementById('fNot'); if(not_) formTemp.notlar = not_.value;
   renderEntryForm();
 }
 async function saveEntry(){
   const tehlike = document.getElementById('fTehlike').value.trim();
   const risk = document.getElementById('fRisk').value.trim();
   const onlemler = document.getElementById('fOnlem').value.trim();
+  const durum = document.getElementById('fDurum').value;
+  const notlar = document.getElementById('fNot').value.trim();
   if(!tehlike || !risk){ showToast('Tehlike ve Risk alanları zorunlu'); return; }
   if(!formTemp.etkilenenler.length){ showToast('En az bir etkilenen grubu ekle'); return; }
-  const bad = formTemp.etkilenenler.some(e=>!e.grup || !e.grup.trim());
-  if(bad){ showToast('Etkilenen grup adı boş olamaz'); return; }
+  const bad = formTemp.etkilenenler.some(e=>!e.grup || !e.grup.trim() || e.grup==='Diğer');
+  if(bad){ showToast('Etkilenen grup adı boş olamaz ("Diğer" seçiliyse grup adını yaz)'); return; }
 
   const p = state.project;
   if(formTemp.id){
     const idx = p.satirlar.findIndex(s=>s.id===formTemp.id);
-    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, onlemler, etkilenenler:formTemp.etkilenenler};
+    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, onlemler, durum, notlar, etkilenenler:formTemp.etkilenenler};
   } else {
     p.sonRK = (p.sonRK||0)+1;
-    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, onlemler, etkilenenler:formTemp.etkilenenler});
+    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, onlemler, durum, notlar, etkilenenler:formTemp.etkilenenler});
   }
   await saveProject(p);
   closeModal();
@@ -773,6 +849,7 @@ function exportPdf(){
   let rows = '';
   p.satirlar.slice().sort((a,b)=>a.rk-b.rk).forEach(s=>{
     const n = s.etkilenenler.length;
+    const durum = durumBilgi(s.durum);
     s.etkilenenler.forEach((e,i)=>{
       const rs = e.olasilik*e.siddet; const lv = seviye(rs);
       rows += '<tr>';
@@ -787,6 +864,7 @@ function exportPdf(){
       rows += '<td class="pr-rs" style="background:'+lv.hexbg+';">'+rs+'</td>';
       if(i===0){
         rows += '<td rowspan="'+n+'">'+esc(s.onlemler)+'</td>';
+        rows += '<td rowspan="'+n+'" style="background:'+durum.hexbg+';"><b>'+durum.label+'</b>'+(s.notlar?('<br>'+esc(s.notlar)):'')+'</td>';
       }
       rows += '</tr>';
     });
@@ -796,7 +874,7 @@ function exportPdf(){
     '<div class="pr-page">'+
       '<div class="pr-header">'+
         '<div><h1>Risk Değerlendirme Formu — L Tipi Matris</h1><div class="sub">'+esc(p.kurum)+' · Birim/Faaliyet: '+esc(p.isim)+'</div></div>'+
-        '<div class="dates">Oluşturma: '+fmtDate(p.olusturma)+'<br>Güncelleme: '+fmtDate(p.guncelleme)+'</div>'+
+        '<div class="dates">Oluşturma: '+fmtDateOnly(p.olusturma)+'<br>Yenileme: '+fmtDateOnly(p.guncelleme)+' ('+(p.yenilemeYili||2)+' yıl)</div>'+
       '</div>'+
       matrixT+
       '<div class="pr-legend">'+
@@ -806,7 +884,7 @@ function exportPdf(){
       '</div>'+
       '<table class="pr-data"><thead><tr>'+
         '<th style="width:26px;">RK</th><th>Tehlike / Faaliyet</th><th>Risk</th><th>Etkilenenler</th>'+
-        '<th style="width:20px;">O</th><th style="width:20px;">Ş</th><th style="width:26px;">RS</th><th>Alınması Gereken Önlemler</th>'+
+        '<th style="width:20px;">O</th><th style="width:20px;">Ş</th><th style="width:26px;">RS</th><th>Alınması Gereken Önlemler</th><th>Durum</th>'+
       '</tr></thead><tbody>'+rows+'</tbody></table>'+
     '</div>';
 
@@ -859,12 +937,12 @@ function importAllData(evt){
       const varMi = state.index.find(x=>x.id===pid);
       await storageSet('proje_'+pid, proj);
       if(varMi){
-        varMi.isim=proj.isim; varMi.guncelleme=proj.guncelleme;
+        varMi.isim=proj.isim; varMi.guncelleme=proj.guncelleme; varMi.sonAktivite=proj.sonAktivite||proj.guncelleme;
         varMi.riskSayisi=proj.satirlar.length;
         varMi.yuksekSayisi=countByLevel(proj,'high'); varMi.ortaSayisi=countByLevel(proj,'med');
         guncellenen++;
       } else {
-        state.index.push({id:pid, isim:proj.isim, guncelleme:proj.guncelleme,
+        state.index.push({id:pid, isim:proj.isim, guncelleme:proj.guncelleme, sonAktivite:proj.sonAktivite||proj.guncelleme,
           riskSayisi:proj.satirlar.length, yuksekSayisi:countByLevel(proj,'high'), ortaSayisi:countByLevel(proj,'med')});
         eklenen++;
       }
