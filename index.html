@@ -1005,10 +1005,17 @@ async function callClaudeFotoAnaliz(base64Jpeg){
   const data = await res.json();
   const textBlock = (data.content||[]).find(c=>c.type==='text');
   if(!textBlock || !textBlock.text) throw new Error('Yanıt alınamadı');
-  let temiz = textBlock.text.trim();
-  temiz = temiz.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  const ham = textBlock.text.trim();
+  const basla = ham.indexOf('[');
+  const bitir = ham.lastIndexOf(']');
+  if(basla===-1 || bitir===-1 || bitir<=basla){
+    // Model JSON dizisi yerine düz metin döndürdüyse, bunu genelde "tehlike bulamadım" anlamına gelir
+    return [];
+  }
+  const temiz = ham.slice(basla, bitir+1);
   let liste;
-  try{ liste = JSON.parse(temiz); } catch(e){ throw new Error('AI yanıtı okunamadı, tekrar dene'); }
+  try{ liste = JSON.parse(temiz); }
+  catch(e){ throw new Error('AI yanıtı okunamadı: '+temiz.slice(0,150)); }
   if(!Array.isArray(liste)) throw new Error('Beklenmeyen yanıt formatı');
   return liste;
 }
