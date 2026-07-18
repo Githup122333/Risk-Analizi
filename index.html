@@ -1012,7 +1012,9 @@ async function callClaudeFotoAnaliz(base64Jpeg){
     // Model JSON dizisi yerine düz metin döndürdüyse, bunu genelde "tehlike bulamadım" anlamına gelir
     return [];
   }
-  const temiz = ham.slice(basla, bitir+1);
+  const temiz = ham.slice(basla, bitir+1)
+    .replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'")
+    .replace(/,\s*([\]}])/g,'$1');
   let liste;
   try{ liste = JSON.parse(temiz); }
   catch(e){ throw new Error('AI yanıtı okunamadı: '+temiz.slice(0,150)); }
