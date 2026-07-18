@@ -902,6 +902,10 @@ function resizeImageToBase64(file, maxDim){
     reader.onload = function(e){
       const img = new Image();
       img.onload = function(){
+        if(!img.width || !img.height){
+          reject(new Error('Görsel boyutları okunamadı (0x0) — dosya formatı desteklenmiyor olabilir'));
+          return;
+        }
         let w = img.width, h = img.height;
         if(w>maxDim || h>maxDim){
           if(w>h){ h = Math.round(h*maxDim/w); w = maxDim; }
