@@ -978,7 +978,7 @@ function showErrorDetailModal(hatalar){
   );
 }
 async function callClaudeFotoAnaliz(base64Jpeg){
-  const sistem = "Sen Türkiye'de bir hastanede çalışan İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana saha denetiminde çekilmiş bir fotoğraf verilecek. Fotoğrafta İSG açısından tehlike oluşturabilecek HER AYRI ekipmanı/nesneyi/durumu tek tek tespit et (örnek: oksijen tüpü, tıbbi atık kovası, enjeksiyon seti veya başka kesici-delici alet, açıkta kablo, kimyasal ambalaj, hasta transfer/sedye durumu, zemin durumu, koruyucu ekipman eksikliği vb). Fotoğraf genel bir alanı gösteriyorsa, gördüğün her ayrı tehlike için AYRI bir kayıt oluştur. Fotoğraf tek bir nesneyi yakından gösteriyorsa SADECE o nesne için tek bir kayıt oluştur. Sadece fotoğrafta gerçekten gördüğün, somut ve makul tehlikeleri yaz; belirsiz veya var olmayan bir şeyi uydurma. Hiçbir belirgin İSG tehlikesi göremiyorsan boş bir liste döndür. SADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"onlem\":\"alınması gereken önlemler, 3-6 cümle, somut ve uygulanabilir\"}]";
+  const sistem = "Sen Türkiye'de bir hastanede/işyerinde çalışan İş Sağlığı ve Güvenliği (İSG) uzmanısın. Görevin: sana verilen fotoğrafta görünen HER ekipmanı, aracı, makineyi, malzemeyi, madde veya faaliyeti ayrı ayrı tespit edip, her biri için standart bir İSG risk değerlendirme satırı (resmi bir 'L Tipi Risk Değerlendirme Formu'ndaki gibi) oluşturmaktır.\n\nÇOK ÖNEMLİ KURAL: Bir ekipmanın/durumun şu an güvenli, temiz, düzenli veya doğru kullanılıyor GÖRÜNMESİ onu listeden çıkarma sebebi DEĞİLDİR. Bir tehlike KAYNAĞININ (makine, alet, madde, faaliyet) fotoğrafta VAR OLMASI, standart bir risk değerlendirmesinde o kaynak için satır açılması için TEK BAŞINA YETERLİDİR — çünkü potansiyel tehlike kaynağın doğasında vardır (örnek: bir kıyma makinesi ne kadar düzgün kullanılırsa kullanılsın kesme/sıkışma/uzuv kaybı riski taşımaya devam eder). SEN mevcut durumun ne kadar tehlikeli OLDUĞUNA karar VERMİYORSUN; kullanıcı olasılığı, şiddeti ve önlemin uygulanıp uygulanmadığını ('Durum' alanı) zaten kendisi ayrıca puanlayacak. Senin tek görevin: o kaynağın standart/tipik tehlikesini ve standart önlemlerini tarif etmek.\n\nFotoğrafta gördüğün HER ayrı ekipman/alet/madde/faaliyet için ayrı bir kayıt aç. Örnek kategoriler (liste sınırlayıcı değil, sadece yol göstericidir): kesici/doğrayıcı/öğütücü makineler (kıyma makinesi, dilimleme makinesi, mikser vb.), ocak/fırın/kaynar yüzeyler, kazanlar ve sıcak sıvı taşıma, davlumbaz/yağ birikimi/yangın riski, elektrikli cihazlar ve kablolar, kimyasal/deterjan/dezenfektan ambalajları, keskin el aletleri (bıçak vb.), basınçlı kaplar/gaz tüpleri, zemin durumu, kaldırma-taşıma işleri, kişisel koruyucu donanım eksikliği, tıbbi atık kutuları, enjeksiyon/kesici-delici tıbbi aletler, hasta transfer ekipmanları. Bir fotoğrafta 4-5 farklı unsur görünüyorsa 4-5 ayrı kayıt oluşturman NORMAL ve BEKLENEN sonuçtur; şüpheye düştüğünde unsuru dahil etmeyi tercih et, dışarıda bırakma.\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma), ama gördüğün her unsuru atlamadan listele. Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı; bunun dışındaki neredeyse her fotoğrafta en az bir kayıt üretmen beklenir.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"onlem\":\"alınması gereken önlemler, 3-6 cümle, somut ve uygulanabilir, tek satır\"}]";
   let model = 'claude-sonnet-4-6';
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
@@ -990,7 +990,7 @@ async function callClaudeFotoAnaliz(base64Jpeg){
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
   }
   const gövde = {
-    model, max_tokens: 1500, system: sistem,
+    model, max_tokens: 2000, system: sistem,
     messages: [{role:'user', content: [
       {type:'image', source:{type:'base64', media_type:'image/jpeg', data: base64Jpeg}},
       {type:'text', text:'Bu fotoğraftaki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele.'}
@@ -1014,10 +1014,11 @@ async function callClaudeFotoAnaliz(base64Jpeg){
   }
   const temiz = ham.slice(basla, bitir+1)
     .replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'")
-    .replace(/,\s*([\]}])/g,'$1');
+    .replace(/,\s*([\]}])/g,'$1')
+    .replace(/\r\n|\r|\n/g,' ');
   let liste;
   try{ liste = JSON.parse(temiz); }
-  catch(e){ throw new Error('AI yanıtı okunamadı: '+temiz.slice(0,150)); }
+  catch(e){ throw new Error('AI yanıtı okunamadı — ham yanıt: '+ham.slice(0,600)); }
   if(!Array.isArray(liste)) throw new Error('Beklenmeyen yanıt formatı');
   return liste;
 }
