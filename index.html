@@ -1009,8 +1009,7 @@ async function callClaudeFotoAnaliz(base64Jpeg){
   const basla = ham.indexOf('[');
   const bitir = ham.lastIndexOf(']');
   if(basla===-1 || bitir===-1 || bitir<=basla){
-    // Model JSON dizisi yerine düz metin döndürdüyse, bunu genelde "tehlike bulamadım" anlamına gelir
-    return [];
+    throw new Error('Model JSON dizisi döndürmedi, ham yanıt: '+ham.slice(0,600));
   }
   const temiz = ham.slice(basla, bitir+1)
     .replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'")
