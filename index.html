@@ -292,6 +292,7 @@ const DURUMLAR = {
   yapildi:   {label:'Yapıldı', hex:'#2F7A75', hexbg:'#DCEEEC'}
 };
 function durumBilgi(key){ return DURUMLAR[key] || DURUMLAR.yapilmadi; }
+function gecerliModel(m){ return (m && AI_MODELS[m]) ? m : 'claude-sonnet-5'; }
 
 const AI_MODELS = {
   'claude-haiku-4-5-20251001': {label:'Haiku 4.5', hint:'En hızlı ve en ucuz — basit/rutin öneriler için yeterli'},
@@ -986,7 +987,7 @@ async function callClaudeTehlikeSatiri(tehlikeMetni){
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
     if(!key) throw new Error('Önce 🤖 ikonundan API anahtarını gir');
-    model = (await storageGet('ai_model')) || 'claude-sonnet-5';
+    model = gecerliModel(await storageGet('ai_model'));
     headers['x-api-key'] = key;
     headers['anthropic-version'] = '2023-06-01';
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
@@ -1125,7 +1126,7 @@ async function callClaudeFotoAnaliz(base64Jpeg, ekTalimat){
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
     if(!key) throw new Error('Önce 🤖 ikonundan API anahtarını gir');
-    model = (await storageGet('ai_model')) || 'claude-sonnet-5';
+    model = gecerliModel(await storageGet('ai_model'));
     headers['x-api-key'] = key;
     headers['anthropic-version'] = '2023-06-01';
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
@@ -1197,7 +1198,8 @@ function ayristirJsonListesi(ham){
 /* ---------------- AI ÖNERİ (ÖNLEMLER) ---------------- */
 async function openAiSettingsModal(){
   const key = await storageGet('ai_api_key');
-  const savedModel = (await storageGet('ai_model')) || 'claude-sonnet-5';
+  const savedModelRaw = (await storageGet('ai_model')) || 'claude-sonnet-5';
+  const savedModel = AI_MODELS[savedModelRaw] ? savedModelRaw : 'claude-sonnet-5';
   const masked = key ? (String(key).slice(0,10)+'••••••••'+String(key).slice(-4)) : null;
   const modelOptsHtml = Object.keys(AI_MODELS).map(m=>'<option value="'+m+'" '+(m===savedModel?'selected':'')+'>'+AI_MODELS[m].label+'</option>').join('');
   let body;
@@ -1276,7 +1278,7 @@ async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
     const key = await storageGet('ai_api_key');
     if(!key) throw new Error('Önce 🤖 ikonundan API anahtarını gir');
     const pick = document.getElementById('aiModelPick');
-    model = (pick && pick.value) || (await storageGet('ai_model')) || 'claude-sonnet-5';
+    model = gecerliModel((pick && pick.value) || (await storageGet('ai_model')));
     headers['x-api-key'] = key;
     headers['anthropic-version'] = '2023-06-01';
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
