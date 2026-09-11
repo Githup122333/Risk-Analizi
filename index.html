@@ -296,8 +296,8 @@ function durumBilgi(key){ return DURUMLAR[key] || DURUMLAR.yapilmadi; }
 const AI_MODELS = {
   'claude-haiku-4-5-20251001': {label:'Haiku 4.5', hint:'En hızlı ve en ucuz — basit/rutin öneriler için yeterli'},
   'claude-sonnet-5':           {label:'Sonnet 5',  hint:'Dengeli — genel kullanım için önerilir'},
-  'claude-opus-4-8':           {label:'Opus 4.8',  hint:'En güçlü — karmaşık/kritik tehlikelerde dene'},
-  'claude-fable-5':            {label:'Fable 5',   hint:'En üst segment — en pahalı, nadiren gerekir'}
+  'claude-opus-5':             {label:'Opus 5',    hint:'En güçlü — karmaşık/kritik tehlikelerde dene'},
+  'claude-fable-5-1':          {label:'Fable 5.1', hint:'En üst segment — en pahalı, nadiren gerekir'}
 };
 
 let state = { view:'home', projectId:null, expanded:{}, matrixOpen:false, project:null, index:[] };
@@ -981,7 +981,7 @@ async function startCokluRiskEkle(){
 async function callClaudeTehlikeSatiri(tehlikeMetni){
   const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (alınması gereken önlemler, 3-6 cümle, somut, uygulanabilir, tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
   const kullanici = "Tehlike / Faaliyet: "+tehlikeMetni;
-  let model = 'claude-sonnet-4-6';
+  let model = 'claude-sonnet-5';
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
@@ -1120,7 +1120,7 @@ async function callClaudeFotoAnaliz(base64Jpeg, ekTalimat){
   const kullaniciMetni = (ekTalimat && ekTalimat.trim())
     ? 'Bu fotoğraftaki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele. Kullanıcının özellikle belirttiği ek husus/dikkat edilecek durum: "'+ekTalimat.trim()+'" — bunu mutlaka değerlendir ve gerekiyorsa kendi satırını oluştur, kendi tespitlerinin yanına ekle.'
     : 'Bu fotoğraftaki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele.';
-  let model = 'claude-sonnet-4-6';
+  let model = 'claude-sonnet-5';
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
@@ -1270,7 +1270,7 @@ async function aiSuggestOnlem(){
 async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
   const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Alınması Gereken Önlemler' metni üret. Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme, madde imi/numaralama kullanma. Uzunluğu konunun karmaşıklığına göre kendin ayarla: basit/tek boyutlu bir tehlike için 3-4 kısa cümle yeterlidir; ATEX, patlayıcı ortam, kimyasal, çok sistemli teknik tehlikeler gibi çok yönlü konularda 6-9 cümleye kadar çıkabilirsin. Her cümle yeni ve somut bir önlem içermeli, gereksiz tekrar veya dolgu cümle kullanma. Cevabını mutlaka tam bir cümleyle bitir, yarım bırakma.";
   const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için alınması gereken önlemleri yaz.";
-  let model = 'claude-sonnet-4-6';
+  let model = 'claude-sonnet-5';
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
