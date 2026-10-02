@@ -202,11 +202,12 @@
   .modal-title .x{cursor:pointer; color:var(--muted); font-size:20px; padding:2px 6px;}
   .field{margin-bottom:14px;}
   .field label{display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.4px;}
-  .field input[type=text], .field textarea, .field select{
+  .field input[type=text], .field input[type=date], .field textarea, .field select{
     width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 11px;
     font-size:14.5px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--ink);
   }
   .field textarea{min-height:70px; resize:vertical; line-height:1.4;}
+  .field input[type=date]{min-height:42px;}
   .field input:focus, .field textarea:focus, .field select:focus{outline:2px solid var(--accent); outline-offset:1px;}
   .subhead{display:flex; justify-content:space-between; align-items:center; margin:18px 0 10px;}
   .subhead h4{font-family:'Space Grotesk',sans-serif; font-size:14px; margin:0;}
@@ -216,6 +217,13 @@
   .etk-form-grid{display:grid; grid-template-columns:1fr 68px 68px; gap:7px; align-items:end;}
   .etk-form-grid label{font-size:10px; color:var(--muted); font-weight:600; display:block; margin-bottom:4px;}
   .etk-form-grid select{padding:8px 7px; font-size:13px;}
+  .etk-form-grid2{display:grid; grid-template-columns:1fr 68px 68px; gap:7px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);}
+  .etk-form-grid2 .lbl{font-size:10px; color:var(--muted); font-weight:600; line-height:1.3;}
+  .etk-form-grid2 label{font-size:10px; color:var(--muted); font-weight:600; display:block; margin-bottom:4px;}
+  .etk-form-grid2 select{padding:8px 7px; font-size:13px; width:100%;}
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .ai-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px;}
+  .ai-row label{margin-bottom:0 !important;}
   .etk-remove{display:flex; justify-content:flex-end; margin-top:6px;}
   .etk-remove button{background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer; font-weight:600;}
   .live-rs{display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12px; color:var(--muted);}
@@ -234,29 +242,20 @@
   }
   #toast.show{transform:translateX(-50%) translateY(0);}
 
-  /* print */
+  /* print — SBU_Van_Risk_Degerlendirme_son.xlsx şablonu (A3 yatay, 18 sütun) */
   #printArea{display:none;}
   @media print{
     html,body{background:#fff !important; display:block !important; width:auto !important; height:auto !important;}
     #shell{display:none !important;}
     #modalRoot,#toast{display:none !important;}
     #printArea{display:block !important; width:100% !important; max-width:none !important; margin:0 !important; padding:0 !important;}
-    .pr-page{padding:0; font-family:'IBM Plex Sans',Arial,sans-serif; color:#111;}
-    .pr-header{display:flex; justify-content:space-between; border-bottom:2px solid #111; padding-bottom:8px; margin-bottom:10px;}
-    .pr-header h1{font-size:16px; margin:0 0 3px;}
-    .pr-header .sub{font-size:11px; color:#333;}
-    .pr-header .dates{font-size:10.5px; text-align:right; color:#333;}
-    table.pr-matrix{border-collapse:collapse; margin-bottom:14px; font-size:9px;}
-    table.pr-matrix th, table.pr-matrix td{border:1px solid #999; padding:3px 5px; text-align:center;}
-    table.pr-data{border-collapse:collapse; width:100%; font-size:9.5px; margin-bottom:16px;}
-    table.pr-data th{background:#eee; border:1px solid #999; padding:4px; font-size:9px;}
-    table.pr-data td{border:1px solid #999; padding:4px; vertical-align:top;}
-    table.pr-data tr{page-break-inside:avoid;}
-    .pr-rs{font-weight:700; text-align:center;}
-    .pr-legend{display:flex; gap:14px; font-size:9.5px; margin-bottom:14px;}
-    .pr-legend span{display:inline-flex; align-items:center; gap:4px;}
-    .pr-legend i{width:10px;height:10px; display:inline-block; border:1px solid #999;}
-    @page{margin:14mm 12mm;}
+    #printArea, #printArea *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    table.pr-sheet{border-collapse:collapse; table-layout:fixed; width:100%; font-family:Arial,Helvetica,sans-serif; color:#000;}
+    table.pr-sheet td{padding:1.5pt 3pt; border:none; overflow:hidden; overflow-wrap:anywhere; word-break:break-word; line-height:1.2;}
+    table.pr-sheet thead{display:table-header-group;}
+    table.pr-sheet tbody{break-inside:avoid; page-break-inside:avoid;}
+    table.pr-sheet tr{break-inside:avoid; page-break-inside:avoid;}
+    @page{size:A3 landscape; margin:8mm 6mm 10mm 6mm;}
   }
 </style>
 </head>
@@ -277,7 +276,16 @@
    VERİ MODELİ
    index key -> [{id, isim, kurum, olusturma, guncelleme, sonRK}]
    proje_{id} key -> { id, isim, kurum, olusturma, guncelleme, sonRK, satirlar:[
-      { id, rk, tehlike, risk, onlemler, etkilenenler:[{id, grup, olasilik, siddet}] }
+      { id, rk,
+        tehlike,   -> şablon: Tanımlanan Tehlikeler
+        risk,      -> şablon: Belirlenen Riskler
+        mevcut,    -> şablon: Mevcut Durum ve Tedbirler
+        onlemler,  -> şablon: Planlanan İyileştirici Faaliyetler (eski 'Alınması Gereken Önlemler')
+        sorumlu, termin, kapatma,  -> şablon: Sorumlular / Termin / Kapatma Tarihi
+        notlar,    -> şablon: Açıklama
+        durum,     -> yapilmadi | devam | yapildi (Açıklama sütununa yazılır)
+        etkilenenler:[{id, grup, olasilik, siddet, olasilikSonra, siddetSonra}]  (şablon bloğu: en fazla 5 satır)
+      }
    ]}
 --------------------------------------------------------- */
 
@@ -549,7 +557,8 @@ function openProjectMenu(){
     '<div class="modal-title">Birim İşlemleri <span class="x" onclick="closeModal()">✕</span></div>'+
     '<div style="display:flex; flex-direction:column; gap:9px;">'+
       '<button class="btn ghost block" onclick="closeModal(); openRenameModal();">✏️ Birim Adını / Kurumu Düzenle</button>'+
-      '<button class="btn ghost block" onclick="closeModal(); exportPdf();">🖨️ Yazdır / PDF Olarak Kaydet</button>'+
+      '<button class="btn primary block" onclick="closeModal(); exportExcel();">📊 Excel Olarak İndir (.xlsx)</button>'+
+      '<button class="btn ghost block" onclick="closeModal(); exportPdf();">🖨️ Yazdır / PDF Olarak Kaydet (A3 yatay)</button>'+
       '<button class="btn danger block" onclick="closeModal(); confirmDeleteProject(\''+state.project.id+'\',\''+esc(state.project.isim).replace(/'/g,"\\'")+'\')">🗑 Birimi Sil</button>'+
     '</div>'
   );
@@ -680,14 +689,26 @@ function rkCardHtml(s){
     html += '<div class="rk-detail">';
     s.etkilenenler.forEach(e=>{
       const rs = e.olasilik*e.siddet; const l2 = seviye(rs);
+      let sonra = '';
+      if(e.olasilikSonra && e.siddetSonra){
+        const rs2 = e.olasilikSonra*e.siddetSonra; const l3 = seviye(rs2);
+        sonra = ' → O:'+e.olasilikSonra+' · Ş:'+e.siddetSonra+' <span class="etk-rs" style="background:'+l3.hex+';">'+rs2+'</span>';
+      }
       html += '<div class="etk-row">'+
         '<div class="etk-grp">'+esc(e.grup)+'</div>'+
-        '<div class="etk-nums">O:'+e.olasilik+' · Ş:'+e.siddet+' <span class="etk-rs" style="background:'+l2.hex+';">'+rs+'</span></div>'+
+        '<div class="etk-nums">O:'+e.olasilik+' · Ş:'+e.siddet+' <span class="etk-rs" style="background:'+l2.hex+';">'+rs+'</span>'+sonra+'</div>'+
       '</div>';
     });
-    html += '<div class="onlem-box"><div class="onlem-label">Alınması Gereken Önlemler</div>'+esc(s.onlemler)+'</div>';
+    if(s.mevcut){
+      html += '<div class="onlem-box"><div class="onlem-label">Mevcut Durum ve Tedbirler</div>'+esc(s.mevcut)+'</div>';
+    }
+    html += '<div class="onlem-box"><div class="onlem-label">Planlanan İyileştirici Faaliyetler</div>'+(esc(s.onlemler)||'—')+'</div>';
+    if(s.sorumlu || s.termin || s.kapatma){
+      html += '<div class="onlem-box"><div class="onlem-label">Sorumlu · Termin · Kapatma</div>'+
+        'Sorumlu: '+(esc(s.sorumlu)||'—')+'\nTermin: '+(s.termin?fmtDateOnly(s.termin):'—')+'\nKapatma Tarihi: '+(s.kapatma?fmtDateOnly(s.kapatma):'—')+'</div>';
+    }
     if(s.notlar){
-      html += '<div class="onlem-box"><div class="onlem-label">Takip Notu</div>'+esc(s.notlar)+'</div>';
+      html += '<div class="onlem-box"><div class="onlem-label">Açıklama</div>'+esc(s.notlar)+'</div>';
     }
     html += '<div class="rk-actions">'+
       '<button class="btn ghost sm" style="flex:1" onclick="event.stopPropagation(); openEntryForm(\''+s.id+'\')">✏️ Düzenle</button>'+
@@ -720,7 +741,11 @@ async function deleteRow(id){
 }
 
 /* ---------------- ENTRY FORM (ADD / EDIT) ---------------- */
-let formTemp = null; // { id, tehlike, risk, onlemler, etkilenenler:[...] }
+let formTemp = null; // { id, tehlike, risk, mevcut, onlemler, sorumlu, termin, kapatma, durum, notlar, aiBaglam, etkilenenler:[...] }
+const MAX_ETKILENEN = 5; // Excel şablonundaki risk bloğu 5 satırdır
+
+function bosEtk(){ return {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3, olasilikSonra:null, siddetSonra:null}; }
+function dateVal(s){ return s ? String(s).slice(0,10) : ''; }
 
 function openEntryForm(existingId){
   const p = state.project;
@@ -728,7 +753,7 @@ function openEntryForm(existingId){
     const s = p.satirlar.find(x=>x.id===existingId);
     formTemp = JSON.parse(JSON.stringify(s));
   } else {
-    formTemp = { id:null, tehlike:'', risk:'', onlemler:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:[ {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3} ] };
+    formTemp = { id:null, tehlike:'', risk:'', mevcut:'', onlemler:'', sorumlu:'', termin:'', kapatma:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:[ bosEtk() ] };
   }
   renderEntryForm();
 }
@@ -740,30 +765,45 @@ function renderEntryForm(){
   });
   const html =
     '<div class="modal-title">'+(t.id?'Riski Düzenle':'Yeni Risk Kaydı')+' <span class="x" onclick="closeModal()">✕</span></div>'+
-    '<div class="field"><label>Tehlike / Faaliyet</label>'+
+    '<div class="field"><label>Tanımlanan Tehlike / Faaliyet</label>'+
       '<input type="text" id="fTehlike" placeholder="Örn. Islak zeminde çalışma" value="'+esc(t.tehlike)+'"></div>'+
-    '<div class="field"><label>Risk (Olası Sonuç)</label>'+
+    '<div class="field"><label>Belirlenen Risk (Olası Sonuç)</label>'+
       '<input type="text" id="fRisk" placeholder="Örn. Düşme, yaralanma" value="'+esc(t.risk)+'"></div>'+
     '<div class="field"><label>AI İçin Ek Bağlam (opsiyonel)</label>'+
-      '<textarea id="fBaglam" placeholder="Tehlike ve Risk kutularını kısa tut; gördüğün durumu detaylıca buraya anlat. Bu kutu sadece AI önerisi için kullanılır, karta veya PDF\'e basılmaz.">'+esc(t.aiBaglam||'')+'</textarea>'+
+      '<textarea id="fBaglam" placeholder="Tehlike ve Risk kutularını kısa tut; gördüğün durumu detaylıca buraya anlat. Bu kutu sadece AI önerisi için kullanılır, karta, Excel\'e veya PDF\'e basılmaz.">'+esc(t.aiBaglam||'')+'</textarea>'+
       '<div class="helper">Örn: \'Çatı katına çıktım, elektrik panosunun yanındaki kablolar açıkta ve yıpranmış, üzerinde tozlanma var, yakınında yanıcı malzeme kutuları duruyordu.\'</div>'+
     '</div>'+
-    '<div class="subhead"><h4>Etkilenenler</h4><button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button></div>'+
+    '<div class="field">'+
+      '<div class="ai-row">'+
+        '<label>Mevcut Durum ve Tedbirler</label>'+
+        '<button type="button" id="aiMevcutBtn" class="btn ghost sm" onclick="aiSuggestMevcut()" style="flex-shrink:0;">🤖 Bağlamdan Yaz</button>'+
+      '</div>'+
+      '<textarea id="fMevcut" placeholder="Sahada şu an var olan durum ve önlemler (fotoğrafta görünenler veya senin gözlemin)...">'+esc(t.mevcut||'')+'</textarea>'+
+    '</div>'+
+    '<div class="subhead"><h4>Etkilenenler ('+t.etkilenenler.length+'/'+MAX_ETKILENEN+')</h4>'+
+      (t.etkilenenler.length<MAX_ETKILENEN ? '<button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button>' : '')+
+    '</div>'+
     '<div id="etkList">'+etkHtml+'</div>'+
     '<div class="field" style="margin-top:14px;">'+
-      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px;">'+
-        '<label style="margin-bottom:0;">Alınması Gereken Önlemler</label>'+
+      '<div class="ai-row">'+
+        '<label>Planlanan İyileştirici Faaliyetler</label>'+
         '<button type="button" id="aiSuggestBtn" class="btn ghost sm" onclick="aiSuggestOnlem()" style="flex-shrink:0;">🤖 AI Öner</button>'+
       '</div>'+
       (HAS_CLOUD_STORAGE ? '' : '<select id="aiModelPick" style="margin-bottom:8px; padding:6px 8px; font-size:12px;">'+
         Object.keys(AI_MODELS).map(m=>'<option value="'+m+'">'+AI_MODELS[m].label+'</option>').join('')+
       '</select>')+
-      '<textarea id="fOnlem" placeholder="Uygulanacak önlemleri yaz... veya yukarıdan AI Öner butonuna dokun">'+esc(t.onlemler)+'</textarea>'+
+      '<textarea id="fOnlem" placeholder="Planlanan iyileştirici faaliyetleri yaz... veya yukarıdan AI Öner butonuna dokun">'+esc(t.onlemler)+'</textarea>'+
+    '</div>'+
+    '<div class="field"><label>Sorumlular</label>'+
+      '<input type="text" id="fSorumlu" placeholder="Örn. Teknik Servis, Başhemşire" value="'+esc(t.sorumlu||'')+'"></div>'+
+    '<div class="two-col">'+
+      '<div class="field"><label>Termin</label><input type="date" id="fTermin" value="'+dateVal(t.termin)+'"></div>'+
+      '<div class="field"><label>Kapatma Tarihi</label><input type="date" id="fKapatma" value="'+dateVal(t.kapatma)+'"></div>'+
     '</div>'+
     '<div class="field"><label>Durum</label><select id="fDurum">'+
       Object.keys(DURUMLAR).map(k=>'<option value="'+k+'" '+((t.durum||'yapilmadi')===k?'selected':'')+'>'+DURUMLAR[k].label+'</option>').join('')+
-    '</select></div>'+
-    '<div class="field"><label>Takip Notu (opsiyonel)</label>'+
+    '</select><div class="helper">Durum, Excel/PDF çıktısında Açıklama sütununun başına yazılır.</div></div>'+
+    '<div class="field"><label>Açıklama / Takip Notu (opsiyonel)</label>'+
       '<textarea id="fNot" placeholder="İlerleme, tarih, kim yaptı vb...">'+esc(t.notlar||'')+'</textarea></div>'+
     '<div class="modal-btn-row">'+
       '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
@@ -785,9 +825,17 @@ function etkRowHtml(e,i){
     opts += '<option value="'+esc(g)+'" '+(!custom && e.grup===g?'selected':'')+'>'+g+'</option>';
   });
   opts += '<option value="Diğer" '+(custom?'selected':'')+'>Diğer (manuel yaz)</option>';
-  let sel = [1,2,3,4,5];
+  const sel = [1,2,3,4,5];
   const oOpts = sel.map(n=>'<option value="'+n+'" '+(e.olasilik==n?'selected':'')+'>'+n+'</option>').join('');
   const sOpts = sel.map(n=>'<option value="'+n+'" '+(e.siddet==n?'selected':'')+'>'+n+'</option>').join('');
+  const bosOpt = '<option value="">—</option>';
+  const o2Opts = bosOpt + sel.map(n=>'<option value="'+n+'" '+(e.olasilikSonra==n?'selected':'')+'>'+n+'</option>').join('');
+  const s2Opts = bosOpt + sel.map(n=>'<option value="'+n+'" '+(e.siddetSonra==n?'selected':'')+'>'+n+'</option>').join('');
+  let sonraTxt = '';
+  if(e.olasilikSonra && e.siddetSonra){
+    const rs2 = e.olasilikSonra*e.siddetSonra; const l3 = seviye(rs2);
+    sonraTxt = ' · Sonra RS = '+rs2+' ('+l3.label+')';
+  }
   return '<div class="etk-form-row" data-idx="'+i+'">'+
     '<div class="etk-form-grid">'+
       '<div><label>Etkilenen Grup</label><select onchange="onEtkGrupChange('+i+',this.value)">'+opts+'</select>'+
@@ -796,9 +844,12 @@ function etkRowHtml(e,i){
       '<div><label>O</label><select onchange="updateEtk('+i+',\'olasilik\',this.value)">'+oOpts+'</select></div>'+
       '<div><label>Ş</label><select onchange="updateEtk('+i+',\'siddet\',this.value)">'+sOpts+'</select></div>'+
     '</div>'+
-    '<div class="live-rs"><span class="dot" style="background:'+lv.hex+';"></span> RS = '+rs+' · '+lv.label+
-      (formTemp.etkilenenler.length>1 ? '<span style="margin-left:auto;"></span>' : '')+
+    '<div class="etk-form-grid2">'+
+      '<div class="lbl">İyileştirme sonrası<br>(opsiyonel)</div>'+
+      '<div><label>O</label><select onchange="updateEtk('+i+',\'olasilikSonra\',this.value)">'+o2Opts+'</select></div>'+
+      '<div><label>Ş</label><select onchange="updateEtk('+i+',\'siddetSonra\',this.value)">'+s2Opts+'</select></div>'+
     '</div>'+
+    '<div class="live-rs"><span class="dot" style="background:'+lv.hex+';"></span> RS = '+rs+' · '+lv.label+sonraTxt+'</div>'+
     (formTemp.etkilenenler.length>1 ? '<div class="etk-remove"><button onclick="removeEtkRow('+i+')">Bu grubu kaldır ✕</button></div>' : '')+
   '</div>';
 }
@@ -815,32 +866,40 @@ function updateEtkGrupSilent(i, val){
   if(formTemp.etkilenenler[i]) formTemp.etkilenenler[i].grup = val;
 }
 function addEtkRow(){
-  formTemp.etkilenenler.push({id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3});
+  if(formTemp.etkilenenler.length>=MAX_ETKILENEN){ showToast('Şablonda bir risk için en fazla '+MAX_ETKILENEN+' etkilenen grubu satırı var'); return; }
+  syncFormFields();
+  formTemp.etkilenenler.push(bosEtk());
   refreshEtkList();
 }
 function removeEtkRow(i){
+  syncFormFields();
   formTemp.etkilenenler.splice(i,1);
   refreshEtkList();
 }
 function updateEtk(i,field,val){
   if(field==='olasilik'||field==='siddet') val = parseInt(val,10);
+  if(field==='olasilikSonra'||field==='siddetSonra') val = (val===''||val==null) ? null : parseInt(val,10);
   formTemp.etkilenenler[i][field] = val;
   refreshEtkList();
 }
+// Formdaki metin alanlarını formTemp'e aktarır (yeniden çizimde yazılanlar kaybolmasın)
+function syncFormFields(){
+  const map = [['fTehlike','tehlike'],['fRisk','risk'],['fMevcut','mevcut'],['fOnlem','onlemler'],['fBaglam','aiBaglam'],
+               ['fSorumlu','sorumlu'],['fTermin','termin'],['fKapatma','kapatma'],['fDurum','durum'],['fNot','notlar']];
+  map.forEach(function(m){ const el = document.getElementById(m[0]); if(el) formTemp[m[1]] = el.value; });
+}
 function refreshEtkList(){
-  // preserve text field values already typed
-  const tehlike = document.getElementById('fTehlike'); if(tehlike) formTemp.tehlike = tehlike.value;
-  const risk = document.getElementById('fRisk'); if(risk) formTemp.risk = risk.value;
-  const onlem = document.getElementById('fOnlem'); if(onlem) formTemp.onlemler = onlem.value;
-  const baglam = document.getElementById('fBaglam'); if(baglam) formTemp.aiBaglam = baglam.value;
-  const durum = document.getElementById('fDurum'); if(durum) formTemp.durum = durum.value;
-  const not_ = document.getElementById('fNot'); if(not_) formTemp.notlar = not_.value;
+  syncFormFields();
   renderEntryForm();
 }
 async function saveEntry(){
   const tehlike = document.getElementById('fTehlike').value.trim();
   const risk = document.getElementById('fRisk').value.trim();
+  const mevcut = document.getElementById('fMevcut').value.trim();
   const onlemler = document.getElementById('fOnlem').value.trim();
+  const sorumlu = document.getElementById('fSorumlu').value.trim();
+  const termin = document.getElementById('fTermin').value || '';
+  const kapatma = document.getElementById('fKapatma').value || '';
   const durum = document.getElementById('fDurum').value;
   const notlar = document.getElementById('fNot').value.trim();
   const aiBaglam = document.getElementById('fBaglam').value.trim();
@@ -848,14 +907,16 @@ async function saveEntry(){
   if(!formTemp.etkilenenler.length){ showToast('En az bir etkilenen grubu ekle'); return; }
   const bad = formTemp.etkilenenler.some(e=>!e.grup || !e.grup.trim() || e.grup==='Diğer');
   if(bad){ showToast('Etkilenen grup adı boş olamaz ("Diğer" seçiliyse grup adını yaz)'); return; }
+  const yarim = formTemp.etkilenenler.some(e=>!!e.olasilikSonra !== !!e.siddetSonra);
+  if(yarim){ showToast('İyileştirme sonrası için O ve Ş değerlerinin ikisini de seç (veya ikisini de boş bırak)'); return; }
 
   const p = state.project;
   if(formTemp.id){
     const idx = p.satirlar.findIndex(s=>s.id===formTemp.id);
-    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, onlemler, durum, notlar, aiBaglam, kaynak:formTemp.kaynak, etkilenenler:formTemp.etkilenenler};
+    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, mevcut, onlemler, sorumlu, termin, kapatma, durum, notlar, aiBaglam, kaynak:formTemp.kaynak, etkilenenler:formTemp.etkilenenler};
   } else {
     p.sonRK = (p.sonRK||0)+1;
-    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, onlemler, durum, notlar, aiBaglam, kaynak:'manuel', etkilenenler:formTemp.etkilenenler});
+    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, mevcut, onlemler, sorumlu, termin, kapatma, durum, notlar, aiBaglam, kaynak:'manuel', etkilenenler:formTemp.etkilenenler});
   }
   await saveProject(p);
   closeModal();
@@ -932,7 +993,7 @@ function resizeImageToBase64(file, maxDim){
 function openCokluRiskModal(){
   openModal(
     '<div class="modal-title">Çoklu Risk Ekle <span class="x" onclick="closeModal()">✕</span></div>'+
-    '<div class="confirm-text">Her satıra bir Tehlike/Faaliyet yaz. AI, her satır için ayrı bir risk kaydı oluşturup Risk ve Alınması Gereken Önlemler kısımlarını otomatik dolduracak. Etkilenenler/Olasılık/Şiddet/Durum yine sana kalacak, sonradan gözden geçirip dolduracaksın.</div>'+
+    '<div class="confirm-text">Her satıra bir Tehlike/Faaliyet yaz. AI, her satır için ayrı bir risk kaydı oluşturup Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik dolduracak. Mevcut Durum ve Tedbirler/Etkilenenler/Olasılık/Şiddet/Durum yine sana kalacak, sonradan gözden geçirip dolduracaksın.</div>'+
     '<div class="field"><label>Tehlike / Faaliyet Listesi (her satıra bir tane)</label>'+
     '<textarea id="cokluListe" style="min-height:170px;" placeholder="Örn:\nKıyma makinesinin kullanımı\nSıcak yağ ile çalışma\nBıçak bileme işlemi\nIslak zeminde çalışma"></textarea></div>'+
     '<div class="modal-btn-row">'+
@@ -980,7 +1041,7 @@ async function startCokluRiskEkle(){
   }
 }
 async function callClaudeTehlikeSatiri(tehlikeMetni){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (alınması gereken önlemler, 3-6 cümle, somut, uygulanabilir, tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (planlanan iyileştirici faaliyetler, 3-6 cümle, somut, uygulanabilir, tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
   const kullanici = "Tehlike / Faaliyet: "+tehlikeMetni;
   let model = 'claude-sonnet-5';
   const headers = {"content-type":"application/json"};
@@ -1079,7 +1140,7 @@ async function startPhotoAnalysis(){
           p.sonRK = (p.sonRK||0)+1;
           p.satirlar.push({
             id: uid(), rk: p.sonRK,
-            tehlike: (item.tehlike||'').trim(), risk: (item.risk||'').trim(), onlemler: (item.onlem||'').trim(),
+            tehlike: (item.tehlike||'').trim(), risk: (item.risk||'').trim(), mevcut: (item.mevcut||'').trim(), onlemler: (item.onlem||'').trim(),
             durum: 'yapilmadi', notlar: '', aiBaglam: '', kaynak: 'foto',
             etkilenenler: [{id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:1, siddet:1}]
           });
@@ -1129,7 +1190,7 @@ async function callClaudeFotoAnaliz(base64Listesi, ekTalimat){
   const odakliTarama = "Görevin: kullanıcının SANA ÖZELLİKLE BELİRTTİĞİ husus/talimat dışında HİÇBİR ŞEYİ değerlendirmemek, sadece o talimatla sınırlı kalmaktır.\n\nÇOK ÖNEMLİ KURAL: Kullanıcı bir konuya/duruma odaklanmanı istediğinde, fotoğraf(lar)da görünen BAŞKA hiçbir ekipman, makine, malzeme veya tehlikeyi ASLA ayrı satır olarak ekleme — bunları görsen bile yok say. Kullanıcının talimatı senin kapsamının TAMAMIdır, senin kendi ek gözlemlerinle genişletilecek bir taban değildir. Kullanıcı 'sadece 1 satır oluştur' veya 'tek bir satır' derse, tam olarak talimatta istenen konu için 1 satır üret — gönderilen TÜM fotoğraflar için toplamda bu kadar satır üret, fotoğraf başına değil (aynı sorun birden çok fotoğrafta görünüyorsa bunu TEK satırda birleştir, tekrar etme). Kullanıcı satır sayısı belirtmemişse, talimatın kapsadığı konuyu makul şekilde ayrı kalemlere böl ama kesinlikle konu dışına çıkma."+cokluNot+"\n\nEğer fotoğraf(lar)da kullanıcının belirttiği husus/durum hiç yoksa veya tespit edilemiyorsa, boş liste [] döndür — konu dışı başka bir şey bulup onu raporlama.";
   const sistem = "Sen Türkiye'de bir hastanede/işyerinde çalışan İş Sağlığı ve Güvenliği (İSG) uzmanısın. "
     + ((ekTalimat && ekTalimat.trim()) ? odakliTarama : varsayilanTarama)
-    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"onlem\":\"alınması gereken önlemler, 3-6 cümle, somut ve uygulanabilir, tek satır\"}]";
+    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünen bir tedbir yoksa 'Fotoğrafta belirgin bir tedbir görünmemektedir.' yaz, görmediğini uydurma\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut tedbirleri dikkate alarak eksik veya iyileştirilecek hususlar, 3-6 cümle, somut ve uygulanabilir, tek satır (mevcutta zaten var olan bir tedbiri yeni öneri gibi yazma; gerekiyorsa sürdürme/periyodik kontrol olarak belirt)\"}]";
   const kullaniciMetni = (ekTalimat && ekTalimat.trim())
     ? 'Bu fotoğraf(lar)ı yukarıdaki talimata göre incele ve SADECE JSON dizisi olarak yanıt ver. Kullanıcının talimatı — kapsamın SADECE budur, bunun dışına çıkma: "'+ekTalimat.trim()+'"'
     : 'Bu fotoğraf(lar)daki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele.';
@@ -1272,7 +1333,8 @@ async function aiSuggestOnlem(){
   btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
   try{
     const etkGrupStr = formTemp.etkilenenler.map(e=>e.grup).filter(Boolean).join(', ');
-    const sonuc = await callClaudeOnlem(tehlike, risk, etkGrupStr, baglam);
+    const mevcutMetin = (document.getElementById('fMevcut').value||'').trim();
+    const sonuc = await callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcutMetin);
     document.getElementById('fOnlem').value = sonuc.text;
     formTemp.onlemler = sonuc.text;
     if(sonuc.kesildi){
@@ -1287,9 +1349,9 @@ async function aiSuggestOnlem(){
   }
 }
 
-async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Alınması Gereken Önlemler' metni üret. Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme, madde imi/numaralama kullanma. Uzunluğu konunun karmaşıklığına göre kendin ayarla: basit/tek boyutlu bir tehlike için 3-4 kısa cümle yeterlidir; ATEX, patlayıcı ortam, kimyasal, çok sistemli teknik tehlikeler gibi çok yönlü konularda 6-9 cümleye kadar çıkabilirsin. Her cümle yeni ve somut bir önlem içermeli, gereksiz tekrar veya dolgu cümle kullanma. Cevabını mutlaka tam bir cümleyle bitir, yarım bırakma.";
-  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için alınması gereken önlemleri yaz.";
+async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcut){
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Planlanan İyileştirici Faaliyetler' metni üret. Kullanıcı 'Mevcut Durum ve Tedbirler' bilgisi verdiyse, orada zaten var olan önlemleri yeni öneri gibi tekrar yazma; eksik olanları tamamlayan veya güçlendiren faaliyetlere odaklan (mevcut bir tedbirin sürdürülmesi/periyodik kontrolü gerekiyorsa bunu kısaca belirtebilirsin). Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme, madde imi/numaralama kullanma. Uzunluğu konunun karmaşıklığına göre kendin ayarla: basit/tek boyutlu bir tehlike için 3-4 kısa cümle yeterlidir; ATEX, patlayıcı ortam, kimyasal, çok sistemli teknik tehlikeler gibi çok yönlü konularda 6-9 cümleye kadar çıkabilirsin. Her cümle yeni ve somut bir önlem içermeli, gereksiz tekrar veya dolgu cümle kullanma. Cevabını mutlaka tam bir cümleyle bitir, yarım bırakma.";
+  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(mevcut?("\nMevcut durum ve tedbirler: "+mevcut):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için planlanan iyileştirici faaliyetleri yaz.";
   let model = 'claude-sonnet-5';
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
@@ -1323,63 +1385,332 @@ async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam){
   return sonuc;
 }
 
-/* ---------------- PDF / PRINT EXPORT ---------------- */
+/* ---------------- AI: MEVCUT DURUM VE TEDBİRLER ---------------- */
+async function claudeMetinIstegi(sistem, kullanici, limit1, limit2){
+  let model = 'claude-sonnet-5';
+  const headers = {"content-type":"application/json"};
+  if(!HAS_CLOUD_STORAGE){
+    const key = await storageGet('ai_api_key');
+    if(!key) throw new Error('Önce 🤖 ikonundan API anahtarını gir');
+    const pick = document.getElementById('aiModelPick');
+    model = gecerliModel((pick && pick.value) || (await storageGet('ai_model')));
+    headers['x-api-key'] = key;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+  async function istekYap(maxTok){
+    const govde = { model, max_tokens: maxTok, system: sistem, messages: [{role:"user", content:kullanici}] };
+    const res = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', headers, body:JSON.stringify(govde)});
+    if(!res.ok){
+      let msg = 'API hatası ('+res.status+')';
+      try{ const j = await res.json(); if(j.error && j.error.message) msg = j.error.message; }catch(e){}
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    const textBlock = (data.content||[]).find(c=>c.type==='text');
+    if(!textBlock || !textBlock.text) throw new Error('Yanıt alınamadı');
+    return { text: textBlock.text.trim(), kesildi: data.stop_reason === 'max_tokens' };
+  }
+  let sonuc = await istekYap(limit1);
+  if(sonuc.kesildi){ sonuc = await istekYap(limit2); }
+  return sonuc;
+}
+async function callClaudeMevcut(tehlike, risk, baglam){
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Risk değerlendirme formundaki 'Mevcut Durum ve Tedbirler' sütununu dolduruyorsun. Bu sütun, sahada ŞU AN var olan durumu ve halihazırda alınmış tedbirleri anlatır; yapılması gerekenleri veya öneri YAZMA. Yalnızca kullanıcının verdiği saha gözlemlerine dayan; gözlemde olmayan hiçbir tedbiri veya durumu uydurma. 1-4 kısa, tarafsız tespit cümlesi yaz. Gözlemde bir tedbirin yokluğu açıkça belirtilmişse bunu da tespit olarak yaz. Başlık, giriş cümlesi, madde imi veya numaralama kullanma; cevabını tam bir cümleyle bitir.";
+  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+"\nSahada gözlemlenen detaylar: "+baglam+"\n\nBu gözlemlere göre 'Mevcut Durum ve Tedbirler' metnini yaz.";
+  return await claudeMetinIstegi(sistem, kullanici, 500, 1000);
+}
+async function aiSuggestMevcut(){
+  syncFormFields();
+  const tehlike = (formTemp.tehlike||'').trim();
+  const risk = (formTemp.risk||'').trim();
+  const baglam = (formTemp.aiBaglam||'').trim();
+  if(!tehlike || !risk){ showToast('Önce Tehlike/Faaliyet ve Risk alanlarını doldur'); return; }
+  if(!baglam){ showToast('Önce "AI İçin Ek Bağlam" kutusuna sahada gördüğünü yaz'); return; }
+  const btn = document.getElementById('aiMevcutBtn');
+  const eski = btn.textContent;
+  btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
+  try{
+    const sonuc = await callClaudeMevcut(tehlike, risk, baglam);
+    document.getElementById('fMevcut').value = sonuc.text;
+    formTemp.mevcut = sonuc.text;
+    showToast(sonuc.kesildi ? 'Yazıldı ama kesilmiş olabilir — kontrol et' : 'Mevcut durum yazıldı — istersen düzenleyebilirsin');
+  } catch(err){
+    showToast('AI yazamadı: '+err.message);
+  } finally {
+    btn.textContent = eski; btn.disabled = false;
+  }
+}
+
+/* =========================================================
+   ŞABLON: SBU_Van_Risk_Degerlendirme_son.xlsx  (18 sütun A–R, 5 satırlı risk bloğu)
+   Excel ve Yazdır/PDF çıktısı AYNI modelden (buildSheetModel) üretilir.
+   ========================================================= */
+const TPL = {
+  sheet: 'Risk Değerlendirme',
+  title: 'SBÜ. Van Eğitim ve Araştırma Hastanesi Risk Değerlendirme ve Eylem Planı',
+  widths: [6,24,22,26,16,9,13,10,16,26,14,13,13,12,9,13,8,20],          // A..R
+  rowH: {1:9,2:19.5,3:19.5,4:9.95,5:22.5,6:9.95,7:21,8:24.75,9:30,10:30,11:30,12:30,13:30,14:9.95,15:19.5,16:33.75,17:23.25},
+  first: 18, size: 5, minH: 24.95
+};
+const RENK = {green:'BFE279', yellow:'F5C841', red:'EA5B5D', teal:'588B8B', slate:'50545E', blueGray:'68738A',
+              amber:'F8C571', orange:'F28E3B', rust:'C8543C', white:'FFFFFF', shade:'EDEDED'};
+const GRI = ['EBEBEB','D6D6D6','C2C2C2','ADADAD','999999'];
+const OLAS_METIN = ['Gerçekleşme ihtimali çok az','Gerçekleşme ihtimali az','Gerçekleşme ihtimali var (Her zaman mümkün)','Gerçekleşme ihtimali yüksek','Gerçekleşme ihtimali çok yüksek'];
+const SID_METIN = ['İşyerinde (revirde) müdahale edilen hafif yaralanmalar','İşyeri dışında tıbbi müdahale gerektiren işgünü kayıpsız hafif yaralanmalar','10 günden daha az işgünü kaybı ile sonuçlanan yaralanmalar','Ağır yaralanma veya uzuv kaybıyla sonuçlanan yaralanmlar','Ölümle sonuçlanan kazalar'];
+const SID_BASLIK = ['1 (Önemsiz)','2 (Küçük)','3 (Önemli)','4 (Çok Ciddi)','5 (Ölümcül)'];
+const OLAS_BASLIK = ['1 (Çok Düşük)','2 (Düşük)','3 (Mümkün)','4 (Yüksek)','5 (Çok Yüksek)'];
+
+function rsRenk(v){ return v>=15 ? RENK.red : (v>=7 ? RENK.yellow : RENK.green); }
+function oncelikMetni(v){ return v>=15 ? '1.Öncelik (Kabul Edilemez)' : (v>=8 ? '2.Öncelik (Dikkat)' : '3.Öncelik (Kabul Edilebilir)'); }
+function satirSayisiTahmin(metin, genislik){
+  if(!metin) return 1;
+  const cpl = Math.max(4, Math.floor(genislik*0.95));
+  return String(metin).split('\n').reduce(function(a,par){ return a + Math.max(1, Math.ceil(par.length/cpl)); }, 0);
+}
+
+function buildSheetModel(p){
+  const cells = [];
+  const rh = Object.assign({}, TPL.rowH);
+  function add(r1,c1,r2,c2,val,st){
+    cells.push({r1:r1,c1:c1,r2:r2,c2:c2,val:val,
+      st:Object.assign({size:10,h:'center',bold:false,color:'000000',fill:null,border:true,rs:null}, st||{})});
+  }
+  const WH = 'FFFFFF';
+
+  /* --- Satır 1-3: kurum bilgileri --- */
+  add(1,1,1,18,null,{border:false});
+  add(2,1,2,3,'Birim/Bölüm Adı : '+(p.isim||''),{fill:RENK.teal,color:WH,h:'left',size:11});
+  add(3,1,3,3,'Hazırlanma Tarihi : '+fmtDateOnly(p.olusturma),{fill:RENK.teal,color:WH,h:'left',size:11});
+  add(2,5,3,11,TPL.title,{fill:RENK.slate,color:WH,bold:true,size:13});
+  add(2,14,2,18,'Risk Analiz Yöntemi : 5x5 L Tipi Matris',{fill:RENK.teal,color:WH,h:'left',size:11});
+  add(3,14,3,18,'Güncelleme Tarihi : '+fmtDateOnly(p.guncelleme),{fill:RENK.teal,color:WH,h:'left',size:11});
+
+  /* --- Satır 5: parametre başlığı --- */
+  add(5,1,5,18,'Risk Analizi Parametreleri (Olasılık x Şiddet = Risk Skoru(RS))',{fill:RENK.blueGray,color:WH,bold:true,size:12});
+
+  /* --- Satır 7-13: olasılık / şiddet skalası + matris + renk açıklaması --- */
+  add(7,1,7,3,'Olasılık (O)',{fill:RENK.amber,size:11});
+  add(8,1,8,3,'Olasılık Değeri Dereceleri',{fill:'ADADAD',size:10});
+  add(7,4,13,4,null,{border:false});
+  add(7,5,7,9,'Şiddet (Ş)',{fill:RENK.amber,size:11});
+  add(8,5,8,9,'Şiddet Değeri Dereceleri ',{fill:'ADADAD',size:10});
+  add(7,11,7,16,'RİSK MATRİSİ (OLASILIK x ŞİDDET)',{fill:RENK.amber,size:11});
+  add(8,11,8,11,'Olasılık \\ Şiddet',{size:9});
+  for(let j=0;j<5;j++){ add(8,12+j,8,12+j,SID_BASLIK[j],{fill:GRI[j],size:9}); }
+  for(let i=0;i<5;i++){
+    const r = 9+i;
+    add(r,1,r,1,i+1,{size:10});
+    add(r,2,r,3,OLAS_METIN[i],{h:'left',size:9});
+    add(r,5,r,5,i+1,{size:10});
+    add(r,6,r,9,SID_METIN[i],{h:'left',size:9});
+    add(r,11,r,11,OLAS_BASLIK[i],{fill:GRI[i],size:9});
+    for(let j=0;j<5;j++){ const v=(i+1)*(j+1); add(r,12+j,r,12+j,v,{fill:rsRenk(v),size:10}); }
+  }
+  add(7,18,8,18,'Yeşil Alanlar: Düşük öncelikli kontrol faaliyetleri. Mevcut durum korunmalı (kabul edilebilir riskler için)',{fill:RENK.green,size:8});
+  add(9,18,10,18,'Turuncu Alanlar: İkinci öncelikli kontrol faaliyetleri. Orta vadede (3-12 ay)  önlem alınmalı (dikkat gerektiren riskler için)',{fill:RENK.yellow,size:8});
+  add(11,18,13,18,'Kırmızı Alanlar: Birinci öncelikli kontrol faaliyetleri. Derhal veya kısa sürede (0-3 ay) önlem alınmalı (kabul edilemez riskler için)',{fill:RENK.red,size:8});
+
+  /* --- Satır 15-17: grup başlıkları ve sütun başlıkları --- */
+  const hw = {color:WH,bold:true,size:11};
+  add(15,1,15,5,'TEHLİKELERİ TANIMLAMA VE RİSKLERİ BELİRLEME',Object.assign({fill:RENK.orange},hw));
+  add(15,6,15,9,'RİSK ANALİZİ',Object.assign({fill:RENK.rust},hw));
+  add(15,10,15,18,'İYİLEŞTİRİCİ FAALİYET SÜRECİ',Object.assign({fill:RENK.teal},hw));
+  [[1,'No'],[2,'Tanımlanan\nTehlikeler'],[3,'Belirlenen\nRiskler'],[4,'Mevcut Durum ve\nTedbirler'],[5,'Etkilenenler']].forEach(function(h){
+    add(16,h[0],17,h[0],h[1],Object.assign({fill:RENK.orange},hw)); });
+  [[6,'Olasılık'],[7,'Şiddet'],[8,'Risk\nSkoru'],[9,'Öncelik']].forEach(function(h){
+    add(16,h[0],17,h[0],h[1],Object.assign({fill:RENK.rust},hw)); });
+  add(16,10,17,11,'Planlanan İyileştirici\nFaaliyetler',Object.assign({fill:RENK.teal},hw));
+  add(16,12,17,12,'Sorumlular',Object.assign({fill:RENK.teal},hw));
+  add(16,13,17,13,'Termin',Object.assign({fill:RENK.teal},hw));
+  add(16,14,17,14,'Kapatma\nTarihi',Object.assign({fill:RENK.teal},hw));
+  add(16,15,16,17,'İyileştirme Sonrası Tespit Edilen Risk Düzeyi',Object.assign({fill:RENK.teal},hw));
+  add(17,15,17,15,'Olasılık',Object.assign({fill:RENK.teal},hw));
+  add(17,16,17,16,'Şiddet',Object.assign({fill:RENK.teal},hw));
+  add(17,17,17,17,'RS',Object.assign({fill:RENK.teal},hw));
+  add(16,18,17,18,'Açıklama',Object.assign({fill:RENK.teal},hw));
+
+  /* --- Satır 18+: her risk = 5 satırlık blok (S = 18 + (N-1)*5) --- */
+  let r = TPL.first, blokNo = 0;
+  const sirali = p.satirlar.slice().sort(function(a,b){ return a.rk-b.rk; });
+  sirali.forEach(function(s){
+    const gruplar = s.etkilenenler || [];
+    const parcalar = [];
+    for(let i=0; i<Math.max(1,gruplar.length); i+=TPL.size) parcalar.push(gruplar.slice(i,i+TPL.size));
+    parcalar.forEach(function(chunk, ci){
+      const S = r, E = r+TPL.size-1;
+      const shade = (blokNo%2===0) ? RENK.shade : RENK.white;
+      blokNo++;
+      const txt = {h:'left', fill:shade}, ctr = {h:'center', fill:shade};
+      const aciklama = ci===0 ? ('Durum: '+durumBilgi(s.durum).label+(s.notlar?('\n'+s.notlar):'')) : '';
+      const v = ci===0 ? {tehlike:s.tehlike||'', risk:s.risk||'', mevcut:s.mevcut||'', onlem:s.onlemler||'',
+                          sorumlu:s.sorumlu||'', termin:s.termin?fmtDateOnly(s.termin):'', kapatma:s.kapatma?fmtDateOnly(s.kapatma):'', acik:aciklama}
+                       : {tehlike:'(devam)', risk:'', mevcut:'', onlem:'', sorumlu:'', termin:'', kapatma:'', acik:''};
+      add(S,1,E,1,s.rk,ctr);
+      add(S,2,E,2,v.tehlike,txt);
+      add(S,3,E,3,v.risk,txt);
+      add(S,4,E,4,v.mevcut,txt);
+      add(S,10,E,11,v.onlem,txt);
+      add(S,12,E,12,v.sorumlu,ctr);
+      add(S,13,E,13,v.termin,ctr);
+      add(S,14,E,14,v.kapatma,ctr);
+      add(S,18,E,18,v.acik,txt);
+      for(let k=0;k<TPL.size;k++){
+        const rr = S+k, e = chunk[k];
+        const rs = e ? e.olasilik*e.siddet : null;
+        const rs2 = (e && e.olasilikSonra && e.siddetSonra) ? e.olasilikSonra*e.siddetSonra : null;
+        add(rr,5,rr,5,e?e.grup:'',txt);
+        add(rr,6,rr,6,e?e.olasilik:null,ctr);
+        add(rr,7,rr,7,e?e.siddet:null,ctr);
+        add(rr,8,rr,8,{f:'IF(AND(F'+rr+'<>"",G'+rr+'<>""),F'+rr+'*G'+rr+',"")', res: rs===null?'':rs}, Object.assign({rs:rs,cf:true},ctr));
+        add(rr,9,rr,9,{f:'IF(H'+rr+'="","",IF(H'+rr+'>=15,"1.Öncelik (Kabul Edilemez)",IF(H'+rr+'>=8,"2.Öncelik (Dikkat)","3.Öncelik (Kabul Edilebilir)")))', res: rs===null?'':oncelikMetni(rs)}, Object.assign({rs:rs,cf:true,size:8},ctr));
+        add(rr,15,rr,15,(e&&e.olasilikSonra)?e.olasilikSonra:null,ctr);
+        add(rr,16,rr,16,(e&&e.siddetSonra)?e.siddetSonra:null,ctr);
+        add(rr,17,rr,17,{f:'IF(AND(O'+rr+'<>"",P'+rr+'<>""),O'+rr+'*P'+rr+',"")', res: rs2===null?'':rs2}, Object.assign({rs:rs2,cf:true},ctr));
+      }
+      // satır yüksekliği: birleşik metin hücrelerine sığacak kadar
+      const gerekli = Math.max(
+        satirSayisiTahmin(v.tehlike,24), satirSayisiTahmin(v.risk,22), satirSayisiTahmin(v.mevcut,26),
+        satirSayisiTahmin(v.onlem,40), satirSayisiTahmin(v.acik,20), satirSayisiTahmin(v.sorumlu,12)
+      ) * 12.75 + 6;
+      const h = Math.max(TPL.minH, gerekli/TPL.size);
+      for(let k=0;k<TPL.size;k++) rh[S+k] = h;
+      r += TPL.size;
+    });
+  });
+  return {cells:cells, rh:rh, lastRow:r-1, nBlok:blokNo};
+}
+
+/* ---------------- EXCEL (.xlsx) ---------------- */
+function loadExcelJS(){
+  if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  return new Promise(function(resolve,reject){
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    sc.onload = function(){ window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error('ExcelJS yüklenemedi')); };
+    sc.onerror = function(){ reject(new Error('ExcelJS yüklenemedi — internet bağlantını kontrol et')); };
+    document.head.appendChild(sc);
+  });
+}
+function buildExcelWorkbook(p, EJ){
+  const model = buildSheetModel(p);
+  const wb = new EJ.Workbook();
+  wb.creator = 'Saha Risk Kaydı';
+  const ws = wb.addWorksheet(TPL.sheet, {
+    views: [{showGridLines:false}],
+    pageSetup: {orientation:'landscape', paperSize:8, fitToPage:true, fitToWidth:1, fitToHeight:0,
+                horizontalCentered:true, printTitlesRow:'2:17',
+                margins:{left:0.236,right:0.236,top:0.394,bottom:0.906,header:0.118,footer:0.315}}
+  });
+  ws.headerFooter.oddFooter = '&C&P';
+  TPL.widths.forEach(function(w,i){ ws.getColumn(i+1).width = w; });
+  for(let r=1;r<=model.lastRow;r++){ ws.getRow(r).height = model.rh[r] || TPL.minH; }
+
+  const thin = {style:'thin', color:{argb:'FF000000'}};
+  model.cells.forEach(function(cl){
+    const merged = (cl.r1!==cl.r2 || cl.c1!==cl.c2);
+    if(merged) ws.mergeCells(cl.r1,cl.c1,cl.r2,cl.c2);
+    for(let rr=cl.r1; rr<=cl.r2; rr++){
+      for(let cc=cl.c1; cc<=cl.c2; cc++){
+        const c = ws.getCell(rr,cc);
+        c.font = {name:'Arial', size:cl.st.size, bold:!!cl.st.bold, color:{argb:'FF'+cl.st.color}};
+        if(cl.st.fill) c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF'+cl.st.fill}};
+        c.alignment = {horizontal:cl.st.h, vertical:'middle', wrapText:true};
+        if(cl.st.border) c.border = {top:thin,left:thin,bottom:thin,right:thin};
+      }
+    }
+    const m = ws.getCell(cl.r1,cl.c1);
+    if(cl.val && typeof cl.val==='object') m.value = {formula:cl.val.f, result:cl.val.res};
+    else if(cl.val!==null && cl.val!=='') m.value = cl.val;
+  });
+
+  const last = model.lastRow;
+  const dolgu = function(argb){ return {fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF'+argb},bgColor:{argb:'FF'+argb}}, font:{color:{argb:'FF000000'}}}; };
+  function kurallar(a){ // a: sol üst hücre (göreli adres)
+    return [
+      {type:'expression', formulae:['AND(ISNUMBER('+a+'),'+a+'<=6)'], style:dolgu(RENK.green)},
+      {type:'expression', formulae:['AND(ISNUMBER('+a+'),'+a+'>=7,'+a+'<15)'], style:dolgu(RENK.yellow)},
+      {type:'expression', formulae:['AND(ISNUMBER('+a+'),'+a+'>=15)'], style:dolgu(RENK.red)}
+    ];
+  }
+  ws.addConditionalFormatting({ref:'H18:H'+last, rules:kurallar('H18')});
+  ws.addConditionalFormatting({ref:'Q18:Q'+last, rules:kurallar('Q18')});
+  ws.addConditionalFormatting({ref:'I18:I'+last, rules:kurallar('$H18')});
+
+  for(let rr=TPL.first; rr<=last; rr++){
+    ['F','G','O','P'].forEach(function(col){
+      ws.getCell(col+rr).dataValidation = {type:'list', allowBlank:true, formulae:['"1,2,3,4,5"']};
+    });
+  }
+  return wb;
+}
+async function exportExcel(){
+  const p = state.project;
+  if(!p.satirlar.length){ showToast('Dışa aktarılacak kayıt yok'); return; }
+  showToast('Excel hazırlanıyor...');
+  let EJ;
+  try{ EJ = await loadExcelJS(); }catch(err){ showToast(err.message); return; }
+  try{
+    const wb = buildExcelWorkbook(p, EJ);
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ad = (p.isim||'birim').replace(/[\\\/:*?"<>|]+/g,'').trim().replace(/\s+/g,'_');
+    a.href = url; a.download = 'Risk_Degerlendirme_'+ad+'.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    showToast('Excel indirildi');
+  }catch(err){
+    showToast('Excel oluşturulamadı: '+err.message);
+  }
+}
+
+/* ---------------- YAZDIR / PDF (A3 yatay, aynı şablon) ---------------- */
+function renderSheetHtml(model){
+  const SC = 0.8; // 18 sütunlu şablon A3 yatay sayfaya sığsın diye yazı/satır ölçeği
+  const baslangic = {}, kapli = {};
+  model.cells.forEach(function(cl){
+    baslangic[cl.r1+','+cl.c1] = cl;
+    for(let r=cl.r1;r<=cl.r2;r++) for(let c=cl.c1;c<=cl.c2;c++){ if(!(r===cl.r1 && c===cl.c1)) kapli[r+','+c] = true; }
+  });
+  function metin(cl){
+    const v = cl.val;
+    if(v===null || v===undefined) return '';
+    if(typeof v==='object') return esc(String(v.res));
+    return esc(String(v));
+  }
+  function trHtml(r){
+    let h = '<tr style="height:'+((model.rh[r]||TPL.minH)*SC).toFixed(1)+'pt;">';
+    for(let c=1;c<=18;c++){
+      const key = r+','+c;
+      if(kapli[key]) continue;
+      const cl = baslangic[key];
+      if(!cl){ h += '<td></td>'; continue; }
+      const fill = (cl.st.rs!==null && cl.st.rs!==undefined) ? rsRenk(cl.st.rs) : cl.st.fill;
+      let sty = 'font-size:'+(cl.st.size*SC).toFixed(1)+'pt; text-align:'+cl.st.h+'; vertical-align:middle; white-space:pre-line; color:#'+cl.st.color+';';
+      if(fill) sty += ' background:#'+fill+';';
+      if(cl.st.bold) sty += ' font-weight:700;';
+      if(cl.st.border) sty += ' border:0.6pt solid #000;';
+      h += '<td'+(cl.r2>cl.r1?' rowspan="'+(cl.r2-cl.r1+1)+'"':'')+(cl.c2>cl.c1?' colspan="'+(cl.c2-cl.c1+1)+'"':'')+' style="'+sty+'">'+metin(cl)+'</td>';
+    }
+    return h + '</tr>';
+  }
+  const toplam = TPL.widths.reduce(function(a,b){ return a+b; },0);
+  let html = '<table class="pr-sheet"><colgroup>'+TPL.widths.map(function(w){ return '<col style="width:'+(w/toplam*100).toFixed(3)+'%">'; }).join('')+'</colgroup><thead>';
+  for(let r=2;r<=17;r++) html += trHtml(r);          // şablondaki yazdırma başlıkları ($2:$17) her sayfada tekrarlanır
+  html += '</thead>';
+  for(let b=0;b<model.nBlok;b++){
+    html += '<tbody>';
+    for(let k=0;k<TPL.size;k++) html += trHtml(TPL.first + b*TPL.size + k);
+    html += '</tbody>';
+  }
+  return html + '</table>';
+}
 function exportPdf(){
   const p = state.project;
   if(!p.satirlar.length){ showToast('Yazdırılacak kayıt yok'); return; }
-  const grid = [[5,25,20,15,10,5],[4,20,16,12,8,4],[3,15,12,9,6,3],[2,10,8,6,4,2],[1,5,4,3,2,1]];
-  let matrixT = '<table class="pr-matrix"><tr><td style="background:#222;color:#fff;">O \\ Ş</td><th>5 Çok Ciddi</th><th>4 Ciddi</th><th>3 Orta</th><th>2 Hafif</th><th>1 Çok Hafif</th></tr>';
-  const olasiklar=[5,4,3,2,1];
-  grid.forEach((row,i)=>{
-    matrixT += '<tr><th>'+olasiklar[i]+'</th>';
-    row.slice(1).forEach(v=>{ const lv=seviye(v); matrixT += '<td style="background:'+lv.hexbg+';">'+v+'</td>'; });
-    matrixT += '</tr>';
-  });
-  matrixT += '</table>';
-
-  let rows = '';
-  p.satirlar.slice().sort((a,b)=>a.rk-b.rk).forEach(s=>{
-    const n = s.etkilenenler.length;
-    const durum = durumBilgi(s.durum);
-    s.etkilenenler.forEach((e,i)=>{
-      const rs = e.olasilik*e.siddet; const lv = seviye(rs);
-      rows += '<tr>';
-      if(i===0){
-        rows += '<td rowspan="'+n+'">'+s.rk+'</td>';
-        rows += '<td rowspan="'+n+'">'+esc(s.tehlike)+'</td>';
-        rows += '<td rowspan="'+n+'">'+esc(s.risk)+'</td>';
-      }
-      rows += '<td>'+esc(e.grup)+'</td>';
-      rows += '<td style="text-align:center;">'+e.olasilik+'</td>';
-      rows += '<td style="text-align:center;">'+e.siddet+'</td>';
-      rows += '<td class="pr-rs" style="background:'+lv.hexbg+';">'+rs+'</td>';
-      if(i===0){
-        rows += '<td rowspan="'+n+'">'+esc(s.onlemler)+'</td>';
-        rows += '<td rowspan="'+n+'" style="background:'+durum.hexbg+';"><b>'+durum.label+'</b>'+(s.notlar?('<br>'+esc(s.notlar)):'')+'</td>';
-      }
-      rows += '</tr>';
-    });
-  });
-
-  const html =
-    '<div class="pr-page">'+
-      '<div class="pr-header">'+
-        '<div><h1>Risk Değerlendirme Formu — L Tipi Matris</h1><div class="sub">'+esc(p.kurum)+' · Birim/Faaliyet: '+esc(p.isim)+'</div></div>'+
-        '<div class="dates">Oluşturma: '+fmtDateOnly(p.olusturma)+'<br>Yenileme: '+fmtDateOnly(p.guncelleme)+' ('+(p.yenilemeYili||2)+' yıl)</div>'+
-      '</div>'+
-      matrixT+
-      '<div class="pr-legend">'+
-        '<span><i style="background:#FAE1DB;"></i>15–25 Yüksek Risk</span>'+
-        '<span><i style="background:#FBF0D8;"></i>8–12 Orta Risk</span>'+
-        '<span><i style="background:#E6EEE3;"></i>1–6 Düşük Risk</span>'+
-      '</div>'+
-      '<table class="pr-data"><thead><tr>'+
-        '<th style="width:26px;">RK</th><th>Tehlike / Faaliyet</th><th>Risk</th><th>Etkilenenler</th>'+
-        '<th style="width:20px;">O</th><th style="width:20px;">Ş</th><th style="width:26px;">RS</th><th>Alınması Gereken Önlemler</th><th>Durum</th>'+
-      '</tr></thead><tbody>'+rows+'</tbody></table>'+
-    '</div>';
-
-  document.getElementById('printArea').innerHTML = html;
+  document.getElementById('printArea').innerHTML = renderSheetHtml(buildSheetModel(p));
   setTimeout(()=>{ window.print(); }, 80);
 }
 
