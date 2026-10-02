@@ -300,14 +300,90 @@ const DURUMLAR = {
   yapildi:   {label:'Yapıldı', hex:'#2F7A75', hexbg:'#DCEEEC'}
 };
 function durumBilgi(key){ return DURUMLAR[key] || DURUMLAR.yapilmadi; }
-function gecerliModel(m){ return (m && AI_MODELS[m]) ? m : 'claude-sonnet-5'; }
+const MODEL_ESKI_ID = {'claude-sonnet-5':'claude-sonnet-5-5', 'claude-opus-5':'claude-opus-5-5'}; // eski kayıtlı seçimler yeni sürüme taşınır
+function varsayilanModel(){
+  if(AI_MODELS['claude-sonnet-5-5']) return 'claude-sonnet-5-5';
+  const s = Object.keys(AI_MODELS).find(function(k){ return k.indexOf('sonnet')>=0; });
+  return s || Object.keys(AI_MODELS)[0];
+}
+function gecerliModel(m){ m = MODEL_ESKI_ID[m] || m; return (m && AI_MODELS[m]) ? m : varsayilanModel(); }
+
+const ONLEM_KURALLARI = "Yazım kuralları: (1) Yalnızca 2-4 cümle yaz; her cümle tek bir önlem içersin ve '-malıdır / -melidir' ile bitsin (örn. '... sabitlenmelidir.', '... onarılmalıdır.'). 'yapılsın / edilsin' gibi dilek kipi kullanma. (2) İlk cümle, bu tehlike için herkesçe bilinen EN TEMEL ve en kritik önlem olmalıdır; ikincil ayrıntılar uğruna bu önlemi hiçbir koşulda atlama. Bu önlem Mevcut Durum'da zaten varsa tekrar yazma; yerine onun sürdürülmesini/periyodik kontrolünü tek cümleyle belirt ve sıradaki en temel eksik önlemi yaz. (3) Yalnızca eksik olan farkı yaz; mevcut önlemleri yeni öneri gibi tekrar etme. (4) Sıra: tehlikeyi ortadan kaldıran veya azaltan önlem, mühendislik önlemi, idari/eğitim önlemi, en son KKD. Bu tehlike için gerçekçi olmayan basamağı (örn. mevcut tesisi tamamen kaldırmak) yazma; basamak doldurmak için önlem uydurma. (5) Yalnızca girilen tehlikeye odaklan; ayrı konuları (örn. yangın söndürme, genel eğitim programı gibi başka tehlikelerin önlemlerini) yazma, onlar ayrı satırlarda ele alınır. (6) Emin olmadığın standart/yönetmelik numarası, ölçü değeri ve eşik rakamı yazma. (7) Hastane/sağlık tesisi bağlamına uygun yaz; alakasız sektör kalıplarını (örn. tanker dolumu, şantiye) ekleme. (8) Sorumlu kişi ve tarih yazma (ayrı sütunlarda tutuluyor). (9) Toplam yaklaşık 60 kelimeyi aşma; sınıra yaklaşırsan ikincil maddeleri kısalt veya çıkar, en temel önlemi asla çıkarma. Sadece önlem metnini yaz; başlık, giriş cümlesi, açıklama, madde imi veya numaralama ekleme.";
 
 const AI_MODELS = {
   'claude-haiku-4-5-20251001': {label:'Haiku 4.5', hint:'En hızlı ve en ucuz — basit/rutin öneriler için yeterli'},
-  'claude-sonnet-5':           {label:'Sonnet 5',  hint:'Dengeli — genel kullanım için önerilir'},
-  'claude-opus-5':             {label:'Opus 5',    hint:'En güçlü — karmaşık/kritik tehlikelerde dene'},
+  'claude-sonnet-5-5':         {label:'Sonnet 5.5', hint:'Dengeli — genel kullanım için önerilir'},
+  'claude-opus-5-5':           {label:'Opus 5.5',   hint:'En güçlü — karmaşık/kritik tehlikelerde dene'},
   'claude-fable-5-1':          {label:'Fable 5.1', hint:'En üst segment — en pahalı, nadiren gerekir'}
 };
+
+const MODEL_AILE_HINT = {
+  haiku:  'En hızlı ve en ucuz — basit/rutin öneriler için yeterli',
+  sonnet: 'Dengeli — genel kullanım için önerilir',
+  opus:   'En güçlü — karmaşık/kritik tehlikelerde dene',
+  fable:  'En üst segment — en pahalı, nadiren gerekir'
+};
+function modelListesiniUygula(obj){
+  Object.keys(AI_MODELS).forEach(function(k){ delete AI_MODELS[k]; });
+  Object.keys(obj).forEach(function(k){ AI_MODELS[k] = obj[k]; });
+}
+async function modelOnbellegiYukle(){
+  const c = await storageGet('ai_models_cache');
+  if(c && typeof c==='object' && Object.keys(c).length){ modelListesiniUygula(c); }
+}
+// Anthropic Models API'den en güncel modelleri çeker (Haiku/Sonnet/Opus/Fable için her ailenin en yenisi)
+async function modelleriGuncelle(){
+  const girilen = document.getElementById('aiKeyInput');
+  const key = ((girilen && girilen.value.trim()) || (await storageGet('ai_api_key')) || '').trim();
+  if(!key){ showToast('Önce API anahtarını gir'); return; }
+  const btn = document.getElementById('modelRefreshBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Güncelleniyor...'; }
+  try{
+    let liste = [], after = null;
+    for(let sayfa=0; sayfa<5; sayfa++){
+      const url = 'https://api.anthropic.com/v1/models?limit=100'+(after ? '&after_id='+encodeURIComponent(after) : '');
+      const res = await fetch(url, {headers:{'x-api-key':key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true'}});
+      if(!res.ok){
+        let msg = 'API hatası ('+res.status+')';
+        try{ const j = await res.json(); if(j.error && j.error.message) msg = j.error.message; }catch(e){}
+        throw new Error(msg);
+      }
+      const j = await res.json();
+      liste = liste.concat(j.data || []);
+      if(!j.has_more) break;
+      after = j.last_id;
+    }
+    const enYeni = {};
+    liste.forEach(function(m){
+      const id = String(m.id||'');
+      if(id.indexOf('claude-')!==0) return;
+      const aile = Object.keys(MODEL_AILE_HINT).find(function(f){ return id.indexOf(f)>=0; });
+      if(!aile) return;
+      const t = Date.parse(m.created_at) || 0;
+      if(!enYeni[aile] || t > enYeni[aile].t) enYeni[aile] = {id:id, t:t, ad:m.display_name};
+    });
+    const yeni = {};
+    Object.keys(MODEL_AILE_HINT).forEach(function(aile){
+      const m = enYeni[aile]; if(!m) return;
+      yeni[m.id] = {label:String(m.ad||m.id).replace(/^Claude\s+/i,''), hint:MODEL_AILE_HINT[aile]};
+    });
+    if(!Object.keys(yeni).length) throw new Error('Listede uygun model bulunamadı');
+    modelListesiniUygula(yeni);
+    await storageSet('ai_models_cache', yeni);
+    const sel = document.getElementById('aiModelDefault');
+    if(sel){
+      const eski = sel.value;
+      const secili = gecerliModel(eski);
+      sel.innerHTML = Object.keys(AI_MODELS).map(function(m){ return '<option value="'+m+'" '+(m===secili?'selected':'')+'>'+AI_MODELS[m].label+'</option>'; }).join('');
+      const h = document.getElementById('aiModelHint'); if(h) h.textContent = AI_MODELS[sel.value].hint;
+    }
+    showToast('Modeller güncellendi: '+Object.keys(yeni).map(function(k){ return yeni[k].label; }).join(', '));
+  }catch(err){
+    showToast('Güncellenemedi: '+err.message);
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = '🔄 Güncel Modelleri Çek'; }
+  }
+}
 
 let state = { view:'home', projectId:null, expanded:{}, matrixOpen:false, project:null, index:[] };
 
@@ -435,13 +511,29 @@ function fmtDate(iso){
   const d = new Date(iso);
   return d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
 }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function parseYMD(s){ const m = String(s).slice(0,10).split('-'); return new Date(Date.UTC(+m[0], (+m[1])-1, +m[2])); }
+function ymd(d){ return d.toISOString().slice(0,10); }
+function addDays(dateStr, n){ const d = parseYMD(toDateOnly(dateStr)); d.setUTCDate(d.getUTCDate() + (parseInt(n,10)||0)); return ymd(d); }
+function gunFarki(a, b){ return Math.round((parseYMD(b) - parseYMD(a)) / 86400000); }
+// Termin: satırda yalnızca GÜN sayısı saklanır; tarih her zaman birimin Hazırlanma (Oluşturma) tarihinden hesaplanır.
+// Eski kayıtlarda (terminGun yok) kayıtlı termin tarihi aynen gösterilir.
+function terminBilgi(s, p){
+  const g = (s.terminGun===''||s.terminGun==null) ? NaN : parseInt(s.terminGun,10);
+  if(!isNaN(g)) return {gun:g, tarih:addDays((p && p.olusturma) || todayStr(), g)};
+  if(s.termin) return {gun:null, tarih:toDateOnly(s.termin)};
+  return null;
+}
+function terminMetni(s, p){
+  const t = terminBilgi(s, p);
+  if(!t) return '';
+  return (t.gun!==null ? t.gun+' gün\n' : '') + fmtDateOnly(t.tarih);
+}
 function toDateOnly(s){ if(!s) return todayStr(); return String(s).slice(0,10); }
 function addYears(dateStr, years){
-  const base = toDateOnly(dateStr);
-  const d = new Date(base+'T00:00:00');
-  d.setFullYear(d.getFullYear() + (parseInt(years,10)||2));
-  return d.toISOString().slice(0,10);
+  const d = parseYMD(toDateOnly(dateStr));
+  d.setUTCFullYear(d.getUTCFullYear() + (parseInt(years,10)||2));
+  return ymd(d);
 }
 function fmtDateOnly(dateStr){
   if(!dateStr) return '—';
@@ -703,9 +795,10 @@ function rkCardHtml(s){
       html += '<div class="onlem-box"><div class="onlem-label">Mevcut Durum ve Tedbirler</div>'+esc(s.mevcut)+'</div>';
     }
     html += '<div class="onlem-box"><div class="onlem-label">Planlanan İyileştirici Faaliyetler</div>'+(esc(s.onlemler)||'—')+'</div>';
-    if(s.sorumlu || s.termin || s.kapatma){
+    const tb = terminBilgi(s, state.project);
+    if(s.sorumlu || tb || s.kapatma){
       html += '<div class="onlem-box"><div class="onlem-label">Sorumlu · Termin · Kapatma</div>'+
-        'Sorumlu: '+(esc(s.sorumlu)||'—')+'\nTermin: '+(s.termin?fmtDateOnly(s.termin):'—')+'\nKapatma Tarihi: '+(s.kapatma?fmtDateOnly(s.kapatma):'—')+'</div>';
+        'Sorumlu: '+(esc(s.sorumlu)||'—')+'\nTermin: '+(tb ? (tb.gun!==null ? tb.gun+' gün · ' : '')+fmtDateOnly(tb.tarih) : '—')+'\nKapatma Tarihi: '+(s.kapatma?fmtDateOnly(s.kapatma):'—')+'</div>';
     }
     if(s.notlar){
       html += '<div class="onlem-box"><div class="onlem-label">Açıklama</div>'+esc(s.notlar)+'</div>';
@@ -752,8 +845,13 @@ function openEntryForm(existingId){
   if(existingId){
     const s = p.satirlar.find(x=>x.id===existingId);
     formTemp = JSON.parse(JSON.stringify(s));
+    // Eski kayıt (sadece termin tarihi var): gün sayısına çevir, böylece artık hazırlanma tarihine bağlı çalışır
+    if((formTemp.terminGun===undefined || formTemp.terminGun===null || formTemp.terminGun==='') && formTemp.termin){
+      const g = gunFarki(toDateOnly(p.olusturma), toDateOnly(formTemp.termin));
+      if(g>=0){ formTemp.terminGun = g; } else { formTemp.terminGun = ''; formTemp.terminLegacy = formTemp.termin; }
+    }
   } else {
-    formTemp = { id:null, tehlike:'', risk:'', mevcut:'', onlemler:'', sorumlu:'', termin:'', kapatma:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:[ bosEtk() ] };
+    formTemp = { id:null, tehlike:'', risk:'', mevcut:'', onlemler:'', sorumlu:'', termin:'', terminGun:'', kapatma:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:[ bosEtk() ] };
   }
   renderEntryForm();
 }
@@ -780,9 +878,7 @@ function renderEntryForm(){
       '</div>'+
       '<textarea id="fMevcut" placeholder="Sahada şu an var olan durum ve önlemler (fotoğrafta görünenler veya senin gözlemin)...">'+esc(t.mevcut||'')+'</textarea>'+
     '</div>'+
-    '<div class="subhead"><h4>Etkilenenler ('+t.etkilenenler.length+'/'+MAX_ETKILENEN+')</h4>'+
-      (t.etkilenenler.length<MAX_ETKILENEN ? '<button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button>' : '')+
-    '</div>'+
+    '<div class="subhead" id="etkHead">'+etkHeadHtml()+'</div>'+
     '<div id="etkList">'+etkHtml+'</div>'+
     '<div class="field" style="margin-top:14px;">'+
       '<div class="ai-row">'+
@@ -797,7 +893,7 @@ function renderEntryForm(){
     '<div class="field"><label>Sorumlular</label>'+
       '<input type="text" id="fSorumlu" placeholder="Örn. Teknik Servis, Başhemşire" value="'+esc(t.sorumlu||'')+'"></div>'+
     '<div class="two-col">'+
-      '<div class="field"><label>Termin</label><input type="date" id="fTermin" value="'+dateVal(t.termin)+'"></div>'+
+      '<div class="field"><label>Termin (gün)</label><input type="number" inputmode="numeric" min="0" step="1" id="fTerminGun" placeholder="Örn. 30" value="'+((t.terminGun===''||t.terminGun==null)?'':esc(String(t.terminGun)))+'" oninput="terminOnizle()"><div class="helper" id="fTerminOnizle"></div></div>'+
       '<div class="field"><label>Kapatma Tarihi</label><input type="date" id="fKapatma" value="'+dateVal(t.kapatma)+'"></div>'+
     '</div>'+
     '<div class="field"><label>Durum</label><select id="fDurum">'+
@@ -810,12 +906,22 @@ function renderEntryForm(){
       '<button class="btn primary" onclick="saveEntry()">Kaydet</button>'+
     '</div>';
   openModal(html);
+  terminOnizle();
   if(!HAS_CLOUD_STORAGE){
     storageGet('ai_model').then(function(m){
       const sel = document.getElementById('aiModelPick');
       if(sel && m) sel.value = m;
     });
   }
+}
+function terminOnizle(){
+  const inp = document.getElementById('fTerminGun'), out = document.getElementById('fTerminOnizle');
+  if(!inp || !out) return;
+  const baz = toDateOnly(state.project && state.project.olusturma);
+  const v = inp.value.trim();
+  if(v===''){ out.textContent = 'Gün gir; tarih otomatik hesaplanır (Hazırlanma: '+fmtDateOnly(baz)+')'; return; }
+  const g = Math.max(0, parseInt(v,10)||0);
+  out.textContent = '→ '+fmtDateOnly(addDays(baz, g))+' (Hazırlanma tarihi + '+g+' gün)';
 }
 function etkRowHtml(e,i){
   const rs = e.olasilik*e.siddet; const lv = seviye(rs);
@@ -857,7 +963,7 @@ function onEtkGrupChange(i,val){
   if(val==='Diğer'){
     formTemp.etkilenenler[i].grup = 'Diğer';
     refreshEtkList();
-    setTimeout(()=>{ const el=document.getElementById('custom-'+i); if(el) el.focus(); },50);
+    setTimeout(()=>{ const el=document.getElementById('custom-'+i); if(el) el.focus({preventScroll:true}); },50);
   } else {
     updateEtk(i,'grup',val);
   }
@@ -870,6 +976,9 @@ function addEtkRow(){
   syncFormFields();
   formTemp.etkilenenler.push(bosEtk());
   refreshEtkList();
+  const satirlar = document.querySelectorAll('#etkList .etk-form-row');
+  const son = satirlar[satirlar.length-1];
+  if(son && son.scrollIntoView) son.scrollIntoView({block:'nearest'});
 }
 function removeEtkRow(i){
   syncFormFields();
@@ -885,12 +994,27 @@ function updateEtk(i,field,val){
 // Formdaki metin alanlarını formTemp'e aktarır (yeniden çizimde yazılanlar kaybolmasın)
 function syncFormFields(){
   const map = [['fTehlike','tehlike'],['fRisk','risk'],['fMevcut','mevcut'],['fOnlem','onlemler'],['fBaglam','aiBaglam'],
-               ['fSorumlu','sorumlu'],['fTermin','termin'],['fKapatma','kapatma'],['fDurum','durum'],['fNot','notlar']];
+               ['fSorumlu','sorumlu'],['fTerminGun','terminGun'],['fKapatma','kapatma'],['fDurum','durum'],['fNot','notlar']];
   map.forEach(function(m){ const el = document.getElementById(m[0]); if(el) formTemp[m[1]] = el.value; });
 }
+function etkHeadHtml(){
+  const n = formTemp.etkilenenler.length;
+  return '<h4>Etkilenenler ('+n+'/'+MAX_ETKILENEN+')</h4>'+
+    (n<MAX_ETKILENEN ? '<button class="btn ghost sm" onclick="addEtkRow()">+ Grup Ekle</button>' : '');
+}
+// Tüm formu yeniden çizmek yerine yalnızca etkilenen listesini yeniler ve kaydırma konumunu korur
+// (eskiden her seçimde modal baştan çiziliyor, mobilde sayfa yukarı atıyordu).
 function refreshEtkList(){
   syncFormFields();
-  renderEntryForm();
+  const sheet = document.querySelector('.modal-sheet');
+  const list = document.getElementById('etkList');
+  if(!sheet || !list){ renderEntryForm(); return; }
+  const st = sheet.scrollTop;
+  list.innerHTML = formTemp.etkilenenler.map(function(e,i){ return etkRowHtml(e,i); }).join('');
+  const head = document.getElementById('etkHead');
+  if(head) head.innerHTML = etkHeadHtml();
+  sheet.scrollTop = st;
+  requestAnimationFrame(function(){ sheet.scrollTop = st; });
 }
 async function saveEntry(){
   const tehlike = document.getElementById('fTehlike').value.trim();
@@ -898,7 +1022,9 @@ async function saveEntry(){
   const mevcut = document.getElementById('fMevcut').value.trim();
   const onlemler = document.getElementById('fOnlem').value.trim();
   const sorumlu = document.getElementById('fSorumlu').value.trim();
-  const termin = document.getElementById('fTermin').value || '';
+  const tgRaw = document.getElementById('fTerminGun').value.trim();
+  const terminGun = tgRaw==='' ? '' : Math.max(0, parseInt(tgRaw,10)||0);
+  const termin = terminGun!=='' ? addDays(state.project.olusturma, terminGun) : (formTemp.terminLegacy||'');
   const kapatma = document.getElementById('fKapatma').value || '';
   const durum = document.getElementById('fDurum').value;
   const notlar = document.getElementById('fNot').value.trim();
@@ -913,10 +1039,10 @@ async function saveEntry(){
   const p = state.project;
   if(formTemp.id){
     const idx = p.satirlar.findIndex(s=>s.id===formTemp.id);
-    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, mevcut, onlemler, sorumlu, termin, kapatma, durum, notlar, aiBaglam, kaynak:formTemp.kaynak, etkilenenler:formTemp.etkilenenler};
+    p.satirlar[idx] = {id:formTemp.id, rk:p.satirlar[idx].rk, tehlike, risk, mevcut, onlemler, sorumlu, termin, terminGun, kapatma, durum, notlar, aiBaglam, kaynak:formTemp.kaynak, etkilenenler:formTemp.etkilenenler};
   } else {
     p.sonRK = (p.sonRK||0)+1;
-    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, mevcut, onlemler, sorumlu, termin, kapatma, durum, notlar, aiBaglam, kaynak:'manuel', etkilenenler:formTemp.etkilenenler});
+    p.satirlar.push({id:uid(), rk:p.sonRK, tehlike, risk, mevcut, onlemler, sorumlu, termin, terminGun, kapatma, durum, notlar, aiBaglam, kaynak:'manuel', etkilenenler:formTemp.etkilenenler});
   }
   await saveProject(p);
   closeModal();
@@ -1041,9 +1167,9 @@ async function startCokluRiskEkle(){
   }
 }
 async function callClaudeTehlikeSatiri(tehlikeMetni){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (planlanan iyileştirici faaliyetler, 3-6 cümle, somut, uygulanabilir, tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (planlanan iyileştirici faaliyetler; tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. 'onlem' alanı için şu kurallara uy: "+ONLEM_KURALLARI+" SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
   const kullanici = "Tehlike / Faaliyet: "+tehlikeMetni;
-  let model = 'claude-sonnet-5';
+  let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
@@ -1190,11 +1316,12 @@ async function callClaudeFotoAnaliz(base64Listesi, ekTalimat){
   const odakliTarama = "Görevin: kullanıcının SANA ÖZELLİKLE BELİRTTİĞİ husus/talimat dışında HİÇBİR ŞEYİ değerlendirmemek, sadece o talimatla sınırlı kalmaktır.\n\nÇOK ÖNEMLİ KURAL: Kullanıcı bir konuya/duruma odaklanmanı istediğinde, fotoğraf(lar)da görünen BAŞKA hiçbir ekipman, makine, malzeme veya tehlikeyi ASLA ayrı satır olarak ekleme — bunları görsen bile yok say. Kullanıcının talimatı senin kapsamının TAMAMIdır, senin kendi ek gözlemlerinle genişletilecek bir taban değildir. Kullanıcı 'sadece 1 satır oluştur' veya 'tek bir satır' derse, tam olarak talimatta istenen konu için 1 satır üret — gönderilen TÜM fotoğraflar için toplamda bu kadar satır üret, fotoğraf başına değil (aynı sorun birden çok fotoğrafta görünüyorsa bunu TEK satırda birleştir, tekrar etme). Kullanıcı satır sayısı belirtmemişse, talimatın kapsadığı konuyu makul şekilde ayrı kalemlere böl ama kesinlikle konu dışına çıkma."+cokluNot+"\n\nEğer fotoğraf(lar)da kullanıcının belirttiği husus/durum hiç yoksa veya tespit edilemiyorsa, boş liste [] döndür — konu dışı başka bir şey bulup onu raporlama.";
   const sistem = "Sen Türkiye'de bir hastanede/işyerinde çalışan İş Sağlığı ve Güvenliği (İSG) uzmanısın. "
     + ((ekTalimat && ekTalimat.trim()) ? odakliTarama : varsayilanTarama)
-    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünen bir tedbir yoksa 'Fotoğrafta belirgin bir tedbir görünmemektedir.' yaz, görmediğini uydurma\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut tedbirleri dikkate alarak eksik veya iyileştirilecek hususlar, 3-6 cümle, somut ve uygulanabilir, tek satır (mevcutta zaten var olan bir tedbiri yeni öneri gibi yazma; gerekiyorsa sürdürme/periyodik kontrol olarak belirt)\"}]";
+    + "\n\n'onlem' alanı için kurallar: " + ONLEM_KURALLARI
+    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünen bir tedbir yoksa 'Fotoğrafta belirgin bir tedbir görünmemektedir.' yaz, görmediğini uydurma\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut tedbirleri dikkate alarak eksik veya iyileştirilecek hususlar; tek satır düz metin, yazım kuralları yukarıda verilmiştir\"}]";
   const kullaniciMetni = (ekTalimat && ekTalimat.trim())
     ? 'Bu fotoğraf(lar)ı yukarıdaki talimata göre incele ve SADECE JSON dizisi olarak yanıt ver. Kullanıcının talimatı — kapsamın SADECE budur, bunun dışına çıkma: "'+ekTalimat.trim()+'"'
     : 'Bu fotoğraf(lar)daki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele.';
-  let model = 'claude-sonnet-5';
+  let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
@@ -1277,8 +1404,8 @@ function ayristirJsonListesi(ham){
 /* ---------------- AI ÖNERİ (ÖNLEMLER) ---------------- */
 async function openAiSettingsModal(){
   const key = await storageGet('ai_api_key');
-  const savedModelRaw = (await storageGet('ai_model')) || 'claude-sonnet-5';
-  const savedModel = AI_MODELS[savedModelRaw] ? savedModelRaw : 'claude-sonnet-5';
+  const savedModelRaw = (await storageGet('ai_model')) || varsayilanModel();
+  const savedModel = gecerliModel(savedModelRaw);
   const masked = key ? (String(key).slice(0,10)+'••••••••'+String(key).slice(-4)) : null;
   const modelOptsHtml = Object.keys(AI_MODELS).map(m=>'<option value="'+m+'" '+(m===savedModel?'selected':'')+'>'+AI_MODELS[m].label+'</option>').join('');
   let body;
@@ -1292,6 +1419,8 @@ async function openAiSettingsModal(){
       '<div class="field"><label>Varsayılan Model</label>'+
       '<select id="aiModelDefault">'+modelOptsHtml+'</select></div>'+
       '<div class="helper" id="aiModelHint">'+AI_MODELS[savedModel].hint+'</div>'+
+      '<button type="button" id="modelRefreshBtn" class="btn ghost sm" style="margin:2px 0 10px;" onclick="modelleriGuncelle()">🔄 Güncel Modelleri Çek</button>'+
+      '<div class="helper">Bu buton, API anahtarınla Anthropic\'in model listesine bakar ve her ailenin (Haiku, Sonnet, Opus, Fable) en yeni sürümünü listeye koyar. Yeni model çıktığında kod değiştirmeden sadece buna dokunman yeter.</div>'+
       '<div class="helper">Anahtarı <b>console.anthropic.com</b> → API Keys üzerinden alabilirsin. Sadece bu tarayıcıda saklanır. Bu, "AI Öner" butonunun önerdiği varsayılan model — istersen risk formunda o an başka bir modeli de deneyebilirsin.</div>'+
       '<div class="modal-btn-row" style="margin-top:14px;">'+
         (key ? '<button class="btn danger" onclick="removeAiKey()">Anahtarı Sil</button>' : '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>')+
@@ -1350,9 +1479,9 @@ async function aiSuggestOnlem(){
 }
 
 async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcut){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Planlanan İyileştirici Faaliyetler' metni üret. Kullanıcı 'Mevcut Durum ve Tedbirler' bilgisi verdiyse, orada zaten var olan önlemleri yeni öneri gibi tekrar yazma; eksik olanları tamamlayan veya güçlendiren faaliyetlere odaklan (mevcut bir tedbirin sürdürülmesi/periyodik kontrolü gerekiyorsa bunu kısaca belirtebilirsin). Sadece önlem metnini yaz; başlık, giriş cümlesi veya açıklama ekleme, madde imi/numaralama kullanma. Uzunluğu konunun karmaşıklığına göre kendin ayarla: basit/tek boyutlu bir tehlike için 3-4 kısa cümle yeterlidir; ATEX, patlayıcı ortam, kimyasal, çok sistemli teknik tehlikeler gibi çok yönlü konularda 6-9 cümleye kadar çıkabilirsin. Her cümle yeni ve somut bir önlem içermeli, gereksiz tekrar veya dolgu cümle kullanma. Cevabını mutlaka tam bir cümleyle bitir, yarım bırakma.";
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Planlanan İyileştirici Faaliyetler' metni üret. Kullanıcı 'Mevcut Durum ve Tedbirler' bilgisi verdiyse buna göre eksik farkı yaz. "+ONLEM_KURALLARI;
   const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(mevcut?("\nMevcut durum ve tedbirler: "+mevcut):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için planlanan iyileştirici faaliyetleri yaz.";
-  let model = 'claude-sonnet-5';
+  let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
@@ -1387,7 +1516,7 @@ async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcut){
 
 /* ---------------- AI: MEVCUT DURUM VE TEDBİRLER ---------------- */
 async function claudeMetinIstegi(sistem, kullanici, limit1, limit2){
-  let model = 'claude-sonnet-5';
+  let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
     const key = await storageGet('ai_api_key');
@@ -1545,7 +1674,7 @@ function buildSheetModel(p){
       const txt = {h:'left', fill:shade}, ctr = {h:'center', fill:shade};
       const aciklama = ci===0 ? ('Durum: '+durumBilgi(s.durum).label+(s.notlar?('\n'+s.notlar):'')) : '';
       const v = ci===0 ? {tehlike:s.tehlike||'', risk:s.risk||'', mevcut:s.mevcut||'', onlem:s.onlemler||'',
-                          sorumlu:s.sorumlu||'', termin:s.termin?fmtDateOnly(s.termin):'', kapatma:s.kapatma?fmtDateOnly(s.kapatma):'', acik:aciklama}
+                          sorumlu:s.sorumlu||'', termin:terminMetni(s,p), kapatma:s.kapatma?fmtDateOnly(s.kapatma):'', acik:aciklama}
                        : {tehlike:'(devam)', risk:'', mevcut:'', onlem:'', sorumlu:'', termin:'', kapatma:'', acik:''};
       add(S,1,E,1,s.rk,ctr);
       add(S,2,E,2,v.tehlike,txt);
@@ -1572,7 +1701,7 @@ function buildSheetModel(p){
       // satır yüksekliği: birleşik metin hücrelerine sığacak kadar
       const gerekli = Math.max(
         satirSayisiTahmin(v.tehlike,24), satirSayisiTahmin(v.risk,22), satirSayisiTahmin(v.mevcut,26),
-        satirSayisiTahmin(v.onlem,40), satirSayisiTahmin(v.acik,20), satirSayisiTahmin(v.sorumlu,12)
+        satirSayisiTahmin(v.onlem,40), satirSayisiTahmin(v.acik,20), satirSayisiTahmin(v.sorumlu,12), satirSayisiTahmin(v.termin,13)
       ) * 12.75 + 6;
       const h = Math.max(TPL.minH, gerekli/N);   // uzun metin satırları eşit paylaşır
       for(let k=0;k<N;k++) rh[S+k] = h;
@@ -1786,6 +1915,7 @@ function importAllData(evt){
 
 /* ---------------- INIT ---------------- */
 async function init(){
+  await modelOnbellegiYukle();
   await loadIndex();
   renderAppbar();
   renderHome();
