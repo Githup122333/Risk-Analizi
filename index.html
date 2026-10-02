@@ -255,8 +255,8 @@
     table.pr-sheet thead{display:table-header-group;}
     table.pr-sheet tbody{break-inside:avoid; page-break-inside:avoid;}
     table.pr-sheet tr{break-inside:avoid; page-break-inside:avoid;}
-    @page{size:A3 landscape; margin:8mm 6mm 10mm 6mm;}
   }
+  @page{size:A3 landscape; margin:8mm 6mm 10mm 6mm;}
 </style>
 </head>
 <body>
@@ -291,7 +291,7 @@
 
 const ETKILENEN_GRUPLARI = [
   "Doktor","Hemşire / Sağlık Memuru","Anestezi Teknisyeni","Temizlik Personeli",
-  "Güvenlik Personeli","Hastalar","Ziyaretçiler","Tıbbi Sekreter / Otomasyon Görevlisi","Diğer"
+  "Güvenlik Personeli","Hastalar","Ziyaretçiler","Tıbbi Sekreter / Otomasyon Görevlisi","Teknik Personel / İşçi","Diğer"
 ];
 
 const DURUMLAR = {
@@ -742,7 +742,7 @@ async function deleteRow(id){
 
 /* ---------------- ENTRY FORM (ADD / EDIT) ---------------- */
 let formTemp = null; // { id, tehlike, risk, mevcut, onlemler, sorumlu, termin, kapatma, durum, notlar, aiBaglam, etkilenenler:[...] }
-const MAX_ETKILENEN = 5; // Excel şablonundaki risk bloğu 5 satırdır
+const MAX_ETKILENEN = 12; // blok satır sayısı artık etkilenen grubu sayısı kadardır (üst sınır sadece güvenlik için)
 
 function bosEtk(){ return {id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:3, siddet:3, olasilikSonra:null, siddetSonra:null}; }
 function dateVal(s){ return s ? String(s).slice(0,10) : ''; }
@@ -866,7 +866,7 @@ function updateEtkGrupSilent(i, val){
   if(formTemp.etkilenenler[i]) formTemp.etkilenenler[i].grup = val;
 }
 function addEtkRow(){
-  if(formTemp.etkilenenler.length>=MAX_ETKILENEN){ showToast('Şablonda bir risk için en fazla '+MAX_ETKILENEN+' etkilenen grubu satırı var'); return; }
+  if(formTemp.etkilenenler.length>=MAX_ETKILENEN){ showToast('Bir risk için en fazla '+MAX_ETKILENEN+' etkilenen grubu eklenebilir'); return; }
   syncFormFields();
   formTemp.etkilenenler.push(bosEtk());
   refreshEtkList();
@@ -1532,13 +1532,14 @@ function buildSheetModel(p){
 
   /* --- Satır 18+: her risk = 5 satırlık blok (S = 18 + (N-1)*5) --- */
   let r = TPL.first, blokNo = 0;
+  const blokListesi = [];
   const sirali = p.satirlar.slice().sort(function(a,b){ return a.rk-b.rk; });
   sirali.forEach(function(s){
     const gruplar = s.etkilenenler || [];
-    const parcalar = [];
-    for(let i=0; i<Math.max(1,gruplar.length); i+=TPL.size) parcalar.push(gruplar.slice(i,i+TPL.size));
+    const parcalar = [gruplar];            // tek blok: satır sayısı = etkilenen sayısı (en az 1)
     parcalar.forEach(function(chunk, ci){
-      const S = r, E = r+TPL.size-1;
+      const N = Math.max(1, chunk.length);
+      const S = r, E = r+N-1;
       const shade = (blokNo%2===0) ? RENK.shade : RENK.white;
       blokNo++;
       const txt = {h:'left', fill:shade}, ctr = {h:'center', fill:shade};
@@ -1555,7 +1556,7 @@ function buildSheetModel(p){
       add(S,13,E,13,v.termin,ctr);
       add(S,14,E,14,v.kapatma,ctr);
       add(S,18,E,18,v.acik,txt);
-      for(let k=0;k<TPL.size;k++){
+      for(let k=0;k<N;k++){
         const rr = S+k, e = chunk[k];
         const rs = e ? e.olasilik*e.siddet : null;
         const rs2 = (e && e.olasilikSonra && e.siddetSonra) ? e.olasilikSonra*e.siddetSonra : null;
@@ -1573,12 +1574,13 @@ function buildSheetModel(p){
         satirSayisiTahmin(v.tehlike,24), satirSayisiTahmin(v.risk,22), satirSayisiTahmin(v.mevcut,26),
         satirSayisiTahmin(v.onlem,40), satirSayisiTahmin(v.acik,20), satirSayisiTahmin(v.sorumlu,12)
       ) * 12.75 + 6;
-      const h = Math.max(TPL.minH, gerekli/TPL.size);
-      for(let k=0;k<TPL.size;k++) rh[S+k] = h;
-      r += TPL.size;
+      const h = Math.max(TPL.minH, gerekli/N);   // uzun metin satırları eşit paylaşır
+      for(let k=0;k<N;k++) rh[S+k] = h;
+      blokListesi.push({S:S, n:N});
+      r += N;
     });
   });
-  return {cells:cells, rh:rh, lastRow:r-1, nBlok:blokNo};
+  return {cells:cells, rh:rh, lastRow:r-1, nBlok:blokNo, bloklar:blokListesi};
 }
 
 /* ---------------- EXCEL (.xlsx) ---------------- */
@@ -1681,7 +1683,7 @@ function renderSheetHtml(model){
     return esc(String(v));
   }
   function trHtml(r){
-    let h = '<tr style="height:'+((model.rh[r]||TPL.minH)*SC).toFixed(1)+'pt;">';
+    let h = '<tr style="height:'+((model.rh[r]||TPL.minH)*SC*1.1).toFixed(1)+'pt;">';
     for(let c=1;c<=18;c++){
       const key = r+','+c;
       if(kapli[key]) continue;
@@ -1700,9 +1702,9 @@ function renderSheetHtml(model){
   let html = '<table class="pr-sheet"><colgroup>'+TPL.widths.map(function(w){ return '<col style="width:'+(w/toplam*100).toFixed(3)+'%">'; }).join('')+'</colgroup><thead>';
   for(let r=2;r<=17;r++) html += trHtml(r);          // şablondaki yazdırma başlıkları ($2:$17) her sayfada tekrarlanır
   html += '</thead>';
-  for(let b=0;b<model.nBlok;b++){
+  for(let b=0;b<model.bloklar.length;b++){
     html += '<tbody>';
-    for(let k=0;k<TPL.size;k++) html += trHtml(TPL.first + b*TPL.size + k);
+    for(let k=0;k<model.bloklar[b].n;k++) html += trHtml(model.bloklar[b].S + k);
     html += '</tbody>';
   }
   return html + '</table>';
