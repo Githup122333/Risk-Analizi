@@ -248,10 +248,10 @@
     html,body{background:#fff !important; display:block !important; width:auto !important; height:auto !important;}
     #shell{display:none !important;}
     #modalRoot,#toast{display:none !important;}
-    #printArea{display:block !important; width:100% !important; max-width:none !important; margin:0 !important; padding:0 !important;}
+    #printArea{display:block !important; width:100% !important; max-width:none !important; margin:0 !important; padding:0 !important; container-type:inline-size;}
     #printArea, #printArea *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     table.pr-sheet{border-collapse:collapse; table-layout:fixed; width:100%; font-family:Arial,Helvetica,sans-serif; color:#000;}
-    table.pr-sheet td{padding:1.5pt 3pt; border:none; overflow:hidden; overflow-wrap:anywhere; word-break:break-word; line-height:1.2;}
+    table.pr-sheet td{padding:1.5pt 3pt; padding:0.13cqw 0.26cqw; border:none; overflow:hidden; overflow-wrap:anywhere; word-break:break-word; line-height:1.2;}
     table.pr-sheet thead{display:table-header-group;}
     table.pr-sheet tbody{break-inside:avoid; page-break-inside:avoid;}
     table.pr-sheet tr{break-inside:avoid; page-break-inside:avoid;}
@@ -1682,15 +1682,18 @@ function renderSheetHtml(model){
     if(typeof v==='object') return esc(String(v.res));
     return esc(String(v));
   }
-  function trHtml(r){
-    let h = '<tr style="height:'+((model.rh[r]||TPL.minH)*SC*1.1).toFixed(1)+'pt;">';
+  const REF = 1150;   // A3 yatay kullanılabilir genişlik (pt); tüm boyutlar sayfa genişliğine orantılı ölçeklenir
+  function cq(pt){ return (pt/REF*100).toFixed(3)+'cqw'; }
+  function trHtml(r, kat){
+    const hp = (model.rh[r]||TPL.minH)*SC*(kat||1);
+    let h = '<tr style="height:'+hp.toFixed(1)+'pt; height:'+cq(hp)+';">';
     for(let c=1;c<=18;c++){
       const key = r+','+c;
       if(kapli[key]) continue;
       const cl = baslangic[key];
       if(!cl){ h += '<td></td>'; continue; }
       const fill = (cl.st.rs!==null && cl.st.rs!==undefined) ? rsRenk(cl.st.rs) : cl.st.fill;
-      let sty = 'font-size:'+(cl.st.size*SC).toFixed(1)+'pt; text-align:'+cl.st.h+'; vertical-align:middle; white-space:pre-line; color:#'+cl.st.color+';';
+      let sty = 'font-size:'+(cl.st.size*SC).toFixed(1)+'pt; font-size:'+cq(cl.st.size*SC)+'; text-align:'+cl.st.h+'; vertical-align:middle; white-space:pre-line; color:#'+cl.st.color+';';
       if(fill) sty += ' background:#'+fill+';';
       if(cl.st.bold) sty += ' font-weight:700;';
       if(cl.st.border) sty += ' border:0.6pt solid #000;';
@@ -1698,13 +1701,14 @@ function renderSheetHtml(model){
     }
     return h + '</tr>';
   }
-  const toplam = TPL.widths.reduce(function(a,b){ return a+b; },0);
-  let html = '<table class="pr-sheet"><colgroup>'+TPL.widths.map(function(w){ return '<col style="width:'+(w/toplam*100).toFixed(3)+'%">'; }).join('')+'</colgroup><thead>';
-  for(let r=2;r<=17;r++) html += trHtml(r);          // şablondaki yazdırma başlıkları ($2:$17) her sayfada tekrarlanır
+  const pw = TPL.widths.slice(); for(let i=11;i<=15;i++) pw[i] = 12;   // matris sütunları (L–P) eşit genişlikte
+  const toplam = pw.reduce(function(a,b){ return a+b; },0);
+  let html = '<table class="pr-sheet"><colgroup>'+pw.map(function(w){ return '<col style="width:'+(w/toplam*100).toFixed(3)+'%">'; }).join('')+'</colgroup><thead>';
+  [2,3,5,7,8,9,10,11,12,13,15,16,17].forEach(function(r){ html += trHtml(r); });   // boş satırlar (1,4,6,14) hariç tüm başlık satırları her sayfada tekrarlanır
   html += '</thead>';
   for(let b=0;b<model.bloklar.length;b++){
     html += '<tbody>';
-    for(let k=0;k<model.bloklar[b].n;k++) html += trHtml(model.bloklar[b].S + k);
+    for(let k=0;k<model.bloklar[b].n;k++) html += trHtml(model.bloklar[b].S + k, 1.1);
     html += '</tbody>';
   }
   return html + '</table>';
