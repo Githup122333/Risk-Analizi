@@ -308,7 +308,7 @@ function varsayilanModel(){
 }
 function gecerliModel(m){ m = MODEL_ESKI_ID[m] || m; return (m && AI_MODELS[m]) ? m : varsayilanModel(); }
 
-const ONLEM_KURALLARI = "Yazım kuralları: (1) 3-5 cümle yaz, toplam en fazla yaklaşık 90 kelime olsun; her cümle tek bir somut önlem içersin ve '-malıdır / -melidir' ile bitsin. (2) İlk cümle, bu ekipmana veya tehlikeye ÖZGÜ en kritik önlem olsun ve hiçbir koşulda atlanmasın. (3) Mevcut Durum bilgisinin kullanımı: Mevcut Durum yalnızca bir durum tespitidir, önlem listesini kısaltmak için kullanılmaz. Orada yazan önlemler (muhafaza var, el ile itme yapılmıyor, yalnızca yetkili kullanıyor gibi) çalışan davranışına bağlıdır ve sonradan uygulanmayabilir veya bypass edilebilir. Bu yüzden mevcut önlemi yeni eksikmiş gibi yeniden önermek yerine, onun kalıcılığını güvence altına alan faaliyetleri yaz: bypass'ı zorlaştıran veya engelleyen sistem önlemi (enterlok, otomatik durdurma, kilitleme gibi), düzenli saha denetimi ve kontrol formu, ihlalde uyarı/tutanak, uygulamalı eğitimin tekrarı. Mevcut Durum'da hiç önlem yoksa önlemi doğrudan yaz. (4) Bir İSG uzmanının sahada görüp sorgulayabileceği düzeyde yaz. Ekipmanı veya tehlikeyi doğrudan kontrol altına alan koruma/emniyet/algılama/söndürme donanımları (kaçak akım rölesi, söndürme sistemi, gaz dedektörü, emniyet ventili, acil durdurma, topraklama gibi), yalıtkan zemin, kapak/muhafaza durumu, erişim ve yetki kısıtı, hasarlı ekipman kullanılmaması, ölçüm, periyodik kontrol ve kayıt, acil durum, tatbikat, eğitim, işaretleme ve KKD önlem olarak yazılabilir. Önlemler ekipmanın türüne özgü olsun. 'Prosedür hazırlanmalıdır', 'KKD kullanılmalıdır', 'eğitim verilmelidir' gibi her tehlikeye uyan genel cümleleri tek başına yazma. (5) Ekipmanın çalışmasını sağlayan işlevsel, otomasyon ve devre elemanlarına (kontaktör, röle, PLC, klemens, bara, sayaç, valf, sensör, conta vb.) ve bunların teknik değerlerine (kesit, set değeri, eşik rakamı, ölçü) girme. Gerekiyorsa tek cümleyle 'ekipmanın iç donanımı ve teknik uygunluğu, ilgili teknik birim/yetkili servis tarafından kontrol formuyla periyodik olarak doğrulanmalıdır' şeklinde yönlendir. (6) Mevzuat ve standart atfı yapılabilir, ancak yalnızca emin olduğun ve genel düzeyde (yönetmelik veya standart adı). Madde numarası, ölçü ve rakam uydurma. Emin değilsen 'ilgili mevzuata ve üretici talimatına uygun' de. (7) Sıra: tehlikeyi ortadan kaldıran veya azaltan önlem, mühendislik/sistem önlemi, idari ve eğitim önlemi, en son KKD. Gerçekçi olmayan bir basamağı doldurmak için önlem uydurma. (8) Yalnızca girilen tehlikeye odaklan. Ayrı satırlarda ele alınan başka tehlikelerin önlemlerini yazma. (9) Girilen tehlike ne olursa olsun alakasız sayıp boş cevap verme. Hastane/sağlık tesisi bağlamında uygulanabilir önlemleri yaz. (10) Sorumlu kişi ve tarih yazma; bunlar ayrı sütunlarda tutuluyor. (11) Başlık, giriş cümlesi, açıklama, madde imi veya numaralama kullanma. Tek paragraf düz metin yaz ve cevabı tam bir cümleyle bitir. (12) Örnekler (yalnızca biçim, somutluk ve ayrıntı düzeyi için; içeriği kopyalama): Örnek A — Tehlike: Kazan dairesinde doğalgaz hattı. Mevcut durum: yok. Çıktı: 'Kazan dairesine alarm verip gazı otomatik kesen sabit gaz algılama sistemi kurulmalıdır. Kazan dairesi girişi kilitli tutulup yalnızca yetkili personelin girişine izin verilmeli ve ateş yasağı levhası asılmalıdır. Hat ve ekipmanın teknik uygunluğu yetkili servis tarafından kontrol formuyla yılda bir doğrulanıp kayıt altına alınmalıdır. Gaz kaçağı senaryosu acil durum planına eklenmeli ve yılda bir tatbikat yapılmalıdır.' Örnek B — Tehlike: Kıyma makinesi. Mevcut durum: koruyucu muhafaza var, el ile itme yapılmıyor. Çıktı: 'Muhafaza açıldığında veya çıkarıldığında makineyi otomatik durduran enterlok sistemi bulunmalı, yoksa teknik birimce sağlanmalıdır. Muhafazanın takılı olduğu ve itme aparatının kullanıldığı mutfak sorumlusu tarafından düzenli saha denetimi ve kontrol formuyla doğrulanmalıdır. Muhafazasız çalışma yasaklanmalı ve ihlalde uyarı tutanağı düzenlenmelidir. Çalışanlara makine başında uygulamalı eğitim verilmeli ve yılda bir tekrarlanmalıdır.'";
+const ONLEM_KURALLARI = "Planlanan İyileştirici Faaliyetler sütununu yaz. Kurallar: (1) Talimat kartı dilinde yaz: her cümle kısa olsun, tek bir önlem içersin, gerekçe ve açıklama içermesin; anlamı bozmadan sadeleştir. Cümleler '-malı / -meli' ile bitsin (örn. 'Gaz dedektörü monte edilmeli.'). (2) Uzunluğu tehlikenin karmaşıklığına göre ayarla: basit tehlikede 3-5, çok yönlü tehlikede 8-12 kısa cümle yaz. Cümle sayısını doldurmak için önlem uydurma; tekrar ve dolgu olmasın. (3) En kritik önlemle başla. (4) Mevzuat madde numarası yazma. Yönetmelik veya standart adı yazılabilir. (5) Mevcut Durum yalnızca durum tespitidir. Orada yazan önlemleri silme veya atlama; kalıcılığını güvence altına alan faaliyetleri de yaz (bypass'ı engelleyen sistem, saha denetimi/kontrol formu, ihlalde tutanak, tekrar eğitim). (6) Sorumlu ve tarih yazma. Başlık, madde imi, numaralama kullanma; tek paragraf düz metin yaz ve tam cümleyle bitir.";
 
 const AI_MODELS = {
   'claude-haiku-4-5-20251001': {label:'Haiku 4.5', hint:'En hızlı ve en ucuz — basit/rutin öneriler için yeterli'},
@@ -721,6 +721,7 @@ function renderProject(){
   c.innerHTML = html;
 
   document.getElementById('fabHolder').innerHTML =
+    '<button class="fab" onclick="openAlanTaramaModal()" style="bottom:216px; background:#35506B; box-shadow:0 8px 20px rgba(53,80,107,0.45);">🧠 Alan Taraması (Tek Komut)</button>'+
     '<button class="fab" onclick="openCokluRiskModal()" style="bottom:152px; background:var(--accent-dark); box-shadow:0 8px 20px rgba(31,90,86,0.45);">📝 Çoklu Risk Ekle</button>'+
     '<button class="fab" onclick="triggerPhotoCapture()" style="bottom:88px; background:var(--chrome2); box-shadow:0 8px 20px rgba(21,34,37,0.45);">📷 Fotoğraf Ekle (Çek / Galeri)</button>'+
     '<button class="fab" onclick="openEntryForm(null)">+ Risk Ekle</button>'+
@@ -769,6 +770,7 @@ function rkCardHtml(s){
           '<span class="chip" style="background:'+durum.hexbg+'; color:'+durum.hex+'; border-color:'+durum.hexbg+';">'+durum.label+'</span>'+
           (s.kaynak==='foto' ? '<span class="chip" style="background:#E4E9EA; color:#3A5A60;">📷 Fotoğraf</span>' : '')+
           (s.kaynak==='coklu' ? '<span class="chip" style="background:#E4E9EA; color:#3A5A60;">📝 Çoklu Giriş</span>' : '')+
+          (s.kaynak==='alan' ? '<span class="chip" style="background:#E4E9EA; color:#3A5A60;">🧠 Alan Taraması'+(s.kat?(' · '+esc(s.kat)):'')+'</span>' : '')+
           '<span class="chip">'+s.etkilenenler.length+' etkilenen grubu</span>'+
           '<span class="chip">RS max '+maxRs+'</span>'+
         '</div>'+
@@ -1166,9 +1168,9 @@ async function startCokluRiskEkle(){
     if(hatalar.length) setTimeout(()=>showErrorDetailModal(hatalar), 1200);
   }
 }
-async function callClaudeTehlikeSatiri(tehlikeMetni){
+async function callClaudeTehlikeSatiri(tehlikeMetni, alanBaglam){
   const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (planlanan iyileştirici faaliyetler; tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. 'onlem' alanı için şu kurallara uy: "+ONLEM_KURALLARI+" SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
-  const kullanici = "Tehlike / Faaliyet: "+tehlikeMetni;
+  const kullanici = "Tehlike / Faaliyet: "+tehlikeMetni+(alanBaglam?("\nBirim/alan ve kategori: "+alanBaglam):"");
   let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
   if(!HAS_CLOUD_STORAGE){
@@ -1192,8 +1194,8 @@ async function callClaudeTehlikeSatiri(tehlikeMetni){
     if(!textBlock || !textBlock.text) throw new Error('Yanıt alınamadı');
     return { text: textBlock.text.trim(), kesildi: data.stop_reason === 'max_tokens' };
   }
-  let sonuc = await istekYap(900);
-  if(sonuc.kesildi){ sonuc = await istekYap(1800); }
+  let sonuc = await istekYap(1500);
+  if(sonuc.kesildi){ sonuc = await istekYap(3000); }
   const ham = sonuc.text;
   const basla = ham.indexOf('{');
   const bitir = ham.lastIndexOf('}');
@@ -1206,6 +1208,174 @@ async function callClaudeTehlikeSatiri(tehlikeMetni){
   try{ obj = JSON.parse(temiz); }
   catch(e){ throw new Error('AI yanıtı okunamadı, ham yanıt: '+ham.slice(0,400)); }
   return obj;
+}
+
+/* ---------------- ALAN TARAMASI (TEK KOMUTLA TOPLU SATIR) ---------------- */
+let alanTaramaIptal = false;
+let alanBekleyen = null;
+const ALAN_ESZAMANLI = 3;
+const ALAN_MAKS_SATIR = 200;
+
+function alanTaramaIptalEt(){
+  alanTaramaIptal = true;
+  showToast('İptal ediliyor... devam eden satırlar bitince duracak');
+}
+function openAlanTaramaModal(){
+  openModal(
+    '<div class="modal-title">Alan Taraması (Tek Komut) <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Bir birim, alan veya faaliyet tanımla. AI önce o alan için tüm olası tehlike başlıklarını (genel ve alana özgü) listeler; sen gözden geçirip onaylayınca her biri için Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik doldurur. Mevcut Durum/Etkilenenler/Olasılık/Şiddet/Durum sana kalır.</div>'+
+    '<div class="field"><label>Alan / Komut</label>'+
+    '<textarea id="alanKomut" style="min-height:140px;" placeholder="Örn: Hastane ameliyathane birimi için süreç, cihaz ve donanım dahil tüm unsurları düşünerek tanımlanabilecek tüm riskler için satırları oluştur"></textarea></div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn primary" onclick="startAlanTarama()">Listele</button>'+
+    '</div>'
+  );
+  setTimeout(function(){ const t=document.getElementById('alanKomut'); if(t) t.focus(); },80);
+}
+async function startAlanTarama(){
+  const komut = (document.getElementById('alanKomut').value || '').trim();
+  if(!komut){ showToast('Alanı veya komutu yaz'); return; }
+  if(!HAS_CLOUD_STORAGE){
+    const key = await storageGet('ai_api_key');
+    if(!key){ showToast('Önce 🤖 ikonundan API anahtarını gir'); return; }
+  }
+  openModal('<div class="modal-title">Alan taranıyor...</div><div class="confirm-text">AI tehlike başlıklarını listeliyor. Bu işlem birkaç on saniye sürebilir.</div>');
+  try{
+    const sonuc = await callClaudeAlanListesi(komut);
+    if(!sonuc.maddeler.length){
+      closeModal();
+      showErrorDetailModal(['AI liste döndürmedi. Komutu daha açık yazıp tekrar dene.'], 'Liste Oluşturulamadı');
+      return;
+    }
+    alanBekleyen = { komut: komut, alan: sonuc.alan };
+    openAlanOnayModal(sonuc);
+  } catch(err){
+    closeModal();
+    showErrorDetailModal([err.message], 'Liste Oluşturulamadı');
+  }
+}
+function openAlanOnayModal(sonuc){
+  const satirlar = sonuc.maddeler.map(function(m){ return (m.k ? m.k+' | ' : '') + m.t; }).join('\n');
+  const n = sonuc.maddeler.length;
+  const dk = Math.max(1, Math.round(n*2/60));
+  openModal(
+    '<div class="modal-title">'+n+' madde bulundu <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Gözden geçir: istemediğin satırı sil, gerekirse düzenle ("Kategori | Tehlike" biçimi). Onaylayınca her satır için ayrı AI çağrısı yapılır; tahmini süre yaklaşık '+dk+' dk, maliyet seçili modele göre artar.'+
+    (sonuc.kesildi ? ' Liste uzun olduğu için yarıda kesilmiş olabilir; eksik kategori varsa komutu bölerek tekrar çalıştır.' : '')+'</div>'+
+    '<div class="field"><textarea id="alanListe" style="min-height:300px; font-size:13px;">'+esc(satirlar)+'</textarea></div>'+
+    '<div class="modal-btn-row">'+
+      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
+      '<button class="btn primary" onclick="startAlanSatirOlustur()">Satırları Oluştur</button>'+
+    '</div>'
+  );
+}
+async function startAlanSatirOlustur(){
+  const ham = (document.getElementById('alanListe').value || '');
+  const maddeler = ham.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).map(function(l){
+    const i = l.indexOf(' | ');
+    return i>0 ? { k: l.slice(0,i).trim(), t: l.slice(i+3).trim() } : { k: '', t: l };
+  }).filter(function(m){ return m.t; });
+  if(!maddeler.length){ showToast('Listede satır yok'); return; }
+  if(maddeler.length > ALAN_MAKS_SATIR){ showToast('En fazla '+ALAN_MAKS_SATIR+' satır oluşturulabilir'); return; }
+  const bilgi = alanBekleyen || { komut:'', alan:'' };
+  closeModal();
+  await alanSatirlariOlustur(maddeler, bilgi.komut, bilgi.alan);
+}
+function alanIlerlemeGuncelle(biten, toplam, basarili){
+  const m = document.getElementById('alanIlerMetin');
+  const c = document.getElementById('alanIlerCubuk');
+  if(m) m.textContent = biten+' / '+toplam+' işlendi ('+basarili+' satır oluşturuldu)';
+  if(c) c.style.width = Math.round(biten*100/toplam)+'%';
+}
+async function alanSatirlariOlustur(maddeler, komut, alanAdi){
+  const p = state.project;
+  const n = maddeler.length;
+  const alanEtiket = (alanAdi || komut || '').slice(0,150);
+  let sonraki = 0, biten = 0, basarili = 0;
+  const hatalar = [];
+  alanTaramaIptal = false;
+  openModal(
+    '<div class="modal-title">Satırlar oluşturuluyor</div>'+
+    '<div class="confirm-text" id="alanIlerMetin">0 / '+n+' işlendi</div>'+
+    '<div style="height:8px; background:#E4E9EA; border-radius:6px; overflow:hidden;"><div id="alanIlerCubuk" style="height:100%; width:0%; background:var(--accent);"></div></div>'+
+    '<div class="modal-btn-row" style="margin-top:14px;"><button class="btn ghost" onclick="alanTaramaIptalEt()">İptal et</button></div>'
+  );
+  async function dene(m){
+    const baglam = (m.k ? m.k+' — ' : '') + alanEtiket;
+    try{ return await callClaudeTehlikeSatiri(m.t, baglam); }
+    catch(e1){
+      await new Promise(function(r){ setTimeout(r, 2500); });
+      return await callClaudeTehlikeSatiri(m.t, baglam);
+    }
+  }
+  async function isci(){
+    while(!alanTaramaIptal){
+      const i = sonraki++;
+      if(i >= n) return;
+      const m = maddeler[i];
+      try{
+        const sonuc = await dene(m);
+        p.sonRK = (p.sonRK||0)+1;
+        p.satirlar.push({
+          id: uid(), rk: p.sonRK,
+          tehlike: m.t, risk: (sonuc.risk||'').trim(), onlemler: (sonuc.onlem||'').trim(),
+          durum: 'yapilmadi', notlar: '', aiBaglam: '', kaynak: 'alan', kat: m.k || '',
+          etkilenenler: [{id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:1, siddet:1}]
+        });
+        basarili++;
+        if(basarili % 10 === 0){ try{ await saveProject(p); }catch(e){} }
+      } catch(err){
+        hatalar.push(m.t+': '+err.message);
+        if(basarili === 0 && hatalar.length >= 4){ alanTaramaIptal = true; }
+      }
+      biten++;
+      alanIlerlemeGuncelle(biten, n, basarili);
+    }
+  }
+  const isciler = [];
+  for(let k=0; k<ALAN_ESZAMANLI; k++){ isciler.push(isci()); }
+  await Promise.all(isciler);
+  closeModal();
+  if(basarili>0){ await saveProject(p); }
+  renderAppbar(); renderProject();
+  if(basarili===0){
+    showErrorDetailModal(hatalar.length?hatalar:['Hiçbir satır oluşturulamadı'], 'Satırlar Oluşturulamadı');
+  } else {
+    showToast(basarili+'/'+n+' satır oluşturuldu — gözden geçir');
+    if(hatalar.length) setTimeout(function(){ showErrorDetailModal(hatalar, 'Bazı Satırlar Oluşturulamadı'); }, 1200);
+  }
+}
+async function callClaudeAlanListesi(komut){
+  const mevcut = ((state.project && state.project.satirlar) ? state.project.satirlar : [])
+    .map(function(r){ return (r.tehlike||'').trim(); }).filter(Boolean).slice(0,150)
+    .map(function(t){ return t.slice(0,80); });
+  const sistem = "Sen Türkiye'de çalışan deneyimli bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Kullanıcı bir birim/alan/faaliyet için risk değerlendirme satırları isteyecek. Görevin, o alanda tanımlanabilecek TÜM tehlike ve faaliyetleri ayrı ve tekrarsız satırlar hâlinde, kategorilere ayırarak listelemektir. Sadece satır başlıklarını yaz; risk ve önlem yazma. "
+    + "Kapsam: (a) genel tehlikeler: yangın, elektrik, topraklama, düşme/kayma/takılma, çarpma/sıkışma, acil durum ve tahliye, acil çıkış, uyarı işaret ve levhaları, sigara yasağı, periyodik kontrol, bakım-onarım gibi alanın niteliğine uygun olanlar; (b) o alana ÖZGÜ fiziksel, kimyasal, biyolojik, ergonomik ve psikososyal tehlikeler, süreçler, cihaz ve donanımlar. "
+    + "Her kategorideki satır sayısını o kategorinin kapsamına göre kendin belirle (kimi kategoride 5-10, kimisinde çok daha fazla satır olabilir); kullanıcı belirli bir sayı veya kapsam belirttiyse ona uy. Toplam en fazla 150 satır yaz. Satır sayısını doldurmak için uydurma yapma, aynı tehlikeyi farklı sözlerle tekrar etme. "
+    + "Her satır tek bir tehlike/faaliyet olsun; kısa ve net yaz (örn. 'Kıyma makinesinin kullanımı'). Hastane/sağlık tesisi bağlamında yaz. "
+    + "SADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme. İlk eleman kısa birim adı olsun, sonrakiler satırlar:\n"
+    + "[{\"alan\":\"kısa birim/alan adı\"},{\"k\":\"kategori\",\"t\":\"tehlike/faaliyet\"}]";
+  const kullanici = "Alan / komut: " + komut
+    + (mevcut.length ? ("\n\nProjede ZATEN VAR olan satırlar (bunları ve eş anlamlılarını tekrar yazma): " + mevcut.join('; ')) : "");
+  const sonuc = await claudeMetinIstegi(sistem, kullanici, 6000, 8000);
+  const ham = sonuc.text.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'");
+  let alan = '';
+  const maddeler = [];
+  const gorulen = {};
+  (ham.match(/\{[^{}]*\}/g) || []).forEach(function(blok){
+    try{
+      const o = JSON.parse(blok.replace(/,\s*\}/g,'}'));
+      if(o.alan && !alan){ alan = String(o.alan).trim(); }
+      const t = String(o.t || '').replace(/\|/g,'/').trim();
+      if(t.length < 4) return;
+      const anahtar = t.toLowerCase();
+      if(gorulen[anahtar]) return;
+      gorulen[anahtar] = 1;
+      maddeler.push({ k: String(o.k || '').replace(/\|/g,'/').trim(), t: t });
+    } catch(e){}
+  });
+  return { alan: alan, maddeler: maddeler.slice(0, ALAN_MAKS_SATIR), kesildi: sonuc.kesildi };
 }
 
 /* ---------------- FOTOĞRAFTAN OTOMATİK TESPİT ---------------- */
@@ -1298,9 +1468,9 @@ function showPhotoPreviewModal(base64Listesi){
     '</div>'
   );
 }
-function showErrorDetailModal(hatalar){
+function showErrorDetailModal(hatalar, baslik){
   openModal(
-    '<div class="modal-title">Fotoğraf İşlenemedi <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="modal-title">'+(baslik||'Fotoğraf İşlenemedi')+' <span class="x" onclick="closeModal()">✕</span></div>'+
     '<div class="confirm-text">Aşağıdaki hata(lar) oluştu. Bu mesajı Claude\'a gönderirsen sorunu birlikte çözebiliriz.</div>'+
     '<div style="max-height:340px; overflow-y:auto;">'+
       hatalar.map(function(h){ return '<div class="onlem-box" style="margin-bottom:8px; font-size:12.5px; word-break:break-word;">'+esc(h)+'</div>'; }).join('')+
@@ -1317,7 +1487,7 @@ async function callClaudeFotoAnaliz(base64Listesi, ekTalimat){
   const sistem = "Sen Türkiye'de bir hastanede/işyerinde çalışan İş Sağlığı ve Güvenliği (İSG) uzmanısın. "
     + ((ekTalimat && ekTalimat.trim()) ? odakliTarama : varsayilanTarama)
     + "\n\n'onlem' alanı için kurallar: " + ONLEM_KURALLARI
-    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünen bir tedbir yoksa 'Fotoğrafta belirgin bir tedbir görünmemektedir.' yaz, görmediğini uydurma\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut durumu yalnızca durum tespiti olarak dikkate alıp kurallardaki (3) numaralı maddeye göre yaz; tek satır düz metin, yazım kuralları yukarıda verilmiştir\"}]";
+    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünen bir tedbir yoksa 'Fotoğrafta belirgin bir tedbir görünmemektedir.' yaz, görmediğini uydurma\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut durumu yalnızca durum tespiti olarak dikkate alıp kurallardaki (5) numaralı maddeye göre yaz; tek satır düz metin, yazım kuralları yukarıda verilmiştir\"}]";
   const kullaniciMetni = (ekTalimat && ekTalimat.trim())
     ? 'Bu fotoğraf(lar)ı yukarıdaki talimata göre incele ve SADECE JSON dizisi olarak yanıt ver. Kullanıcının talimatı — kapsamın SADECE budur, bunun dışına çıkma: "'+ekTalimat.trim()+'"'
     : 'Bu fotoğraf(lar)daki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele.';
@@ -1357,7 +1527,7 @@ async function callClaudeFotoAnaliz(base64Listesi, ekTalimat){
     return { text: textBlock.text.trim(), kesildi: data.stop_reason === 'max_tokens' };
   }
 
-  const ilkLimit = Math.min(4000, 1600 + base64Listesi.length*700);
+  const ilkLimit = Math.min(6000, 2000 + base64Listesi.length*1000);
   let sonuc = await istekYap(ilkLimit);
   if(sonuc.kesildi){
     sonuc = await istekYap(Math.min(8000, ilkLimit*2)); // çok sayıda madde varsa, çok daha geniş limitle bir kez daha dene
@@ -1479,7 +1649,7 @@ async function aiSuggestOnlem(){
 }
 
 async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcut){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Planlanan İyileştirici Faaliyetler' metni üret. Kullanıcı 'Mevcut Durum ve Tedbirler' bilgisi verdiyse bunu yalnızca durum tespiti olarak kullan; kurallardaki (3) numaralı maddeye göre mevcut önlemlerin kalıcılığını güvence altına alan faaliyetleri yaz. "+ONLEM_KURALLARI;
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi formatına uygun, somut ve uygulanabilir 'Planlanan İyileştirici Faaliyetler' metni üret. Kullanıcı 'Mevcut Durum ve Tedbirler' bilgisi verdiyse bunu yalnızca durum tespiti olarak kullan; kurallardaki (5) numaralı maddeye göre mevcut önlemlerin kalıcılığını güvence altına alan faaliyetleri yaz. "+ONLEM_KURALLARI;
   const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(etkGrupStr?("\nEtkilenen gruplar: "+etkGrupStr):"")+(mevcut?("\nMevcut durum ve tedbirler: "+mevcut):"")+(baglam?("\nSahada gözlemlenen detaylar: "+baglam):"")+"\n\nBu tehlike ve risk için planlanan iyileştirici faaliyetleri yaz.";
   let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
@@ -1507,9 +1677,9 @@ async function callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcut){
     return { text: textBlock.text.trim(), kesildi: data.stop_reason === 'max_tokens' };
   }
 
-  let sonuc = await istekYap(900);
+  let sonuc = await istekYap(1500);
   if(sonuc.kesildi){
-    sonuc = await istekYap(1800); // yarıda kesildiyse, çok daha geniş limitle bir kez daha dene
+    sonuc = await istekYap(3000); // yarıda kesildiyse, çok daha geniş limitle bir kez daha dene
   }
   return sonuc;
 }
