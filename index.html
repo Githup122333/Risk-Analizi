@@ -192,7 +192,7 @@
     display:flex; align-items:flex-end; justify-content:center;
   }
   .modal-sheet{
-    width:100%; max-width:480px; max-height:92vh; overflow-y:auto;
+    width:100%; max-width:480px; max-height:92vh; max-height:92dvh; scroll-padding-bottom:140px; overflow-y:auto;
     background:var(--paper); border-radius:20px 20px 0 0;
     padding:18px 18px calc(18px + env(safe-area-inset-bottom));
     animation:slideup 0.22s ease-out;
@@ -206,7 +206,12 @@
     width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 11px;
     font-size:14.5px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--ink);
   }
-  .field textarea{min-height:70px; resize:vertical; line-height:1.4;}
+  .field textarea{min-height:70px; resize:none; line-height:1.45; overflow-y:auto; max-height:46dvh; display:block;}
+  .field textarea.ag1{min-height:46px; overflow-y:hidden;}
+  .field textarea#fMevcut, .field textarea#fOnlem{min-height:120px;}
+  @media (max-width:600px){
+    .field input[type=text], .field input[type=date], .field input[type=number], .field textarea, .field select{font-size:16px;}
+  }
   .field input[type=date]{min-height:42px;}
   .field input:focus, .field textarea:focus, .field select:focus{outline:2px solid var(--accent); outline-offset:1px;}
   .subhead{display:flex; justify-content:space-between; align-items:center; margin:18px 0 10px;}
@@ -475,10 +480,39 @@ function showToast(msg){
 }
 
 /* ---------------- MODAL HELPERS ---------------- */
+function autoGrow(el){
+  if(!el || el.tagName!=='TEXTAREA') return;
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight+2)+'px';
+}
+function autoGrowAll(){
+  document.querySelectorAll('#modalRoot textarea').forEach(autoGrow);
+}
 function openModal(html){
   document.getElementById('modalRoot').innerHTML =
     '<div class="modal-backdrop" onmousedown="if(event.target===this)closeModal()"><div class="modal-sheet">'+html+'</div></div>';
+  autoGrowAll();
+  requestAnimationFrame(autoGrowAll);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(autoGrowAll);
 }
+document.addEventListener('input', function(e){
+  if(e.target.closest && e.target.closest('#modalRoot')) autoGrow(e.target);
+});
+document.addEventListener('keydown', function(e){
+  // Tehlike/Risk alanlarında Enter yeni satır açmasın, sonraki alana geçsin
+  if(e.key==='Enter' && e.target.classList && e.target.classList.contains('ag1')){
+    e.preventDefault();
+    const all = Array.from(document.querySelectorAll('#modalRoot input,#modalRoot textarea,#modalRoot select'));
+    const nx = all[all.indexOf(e.target)+1];
+    if(nx) nx.focus();
+  }
+});
+document.addEventListener('focusin', function(e){
+  const el = e.target;
+  if(el.closest && el.closest('#modalRoot') && el.tagName==='TEXTAREA'){
+    setTimeout(function(){ if(el.scrollIntoView) el.scrollIntoView({block:'center', behavior:'smooth'}); }, 350);
+  }
+});
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 
 /* ---------------- RENDER: APPBAR ---------------- */
@@ -866,9 +900,9 @@ function renderEntryForm(){
   const html =
     '<div class="modal-title">'+(t.id?'Riski Düzenle':'Yeni Risk Kaydı')+' <span class="x" onclick="closeModal()">✕</span></div>'+
     '<div class="field"><label>Tanımlanan Tehlike / Faaliyet</label>'+
-      '<input type="text" id="fTehlike" placeholder="Örn. Islak zeminde çalışma" value="'+esc(t.tehlike)+'"></div>'+
+      '<textarea id="fTehlike" class="ag1" rows="1" enterkeyhint="next" placeholder="Örn. Islak zeminde çalışma">'+esc(t.tehlike)+'</textarea></div>'+
     '<div class="field"><label>Belirlenen Risk (Olası Sonuç)</label>'+
-      '<input type="text" id="fRisk" placeholder="Örn. Düşme, yaralanma" value="'+esc(t.risk)+'"></div>'+
+      '<textarea id="fRisk" class="ag1" rows="1" enterkeyhint="next" placeholder="Örn. Düşme, yaralanma">'+esc(t.risk)+'</textarea></div>'+
     '<div class="field"><label>AI İçin Ek Bağlam (opsiyonel)</label>'+
       '<textarea id="fBaglam" placeholder="Tehlike ve Risk kutularını kısa tut; gördüğün durumu detaylıca buraya anlat. Bu kutu sadece AI önerisi için kullanılır, karta, Excel\'e veya PDF\'e basılmaz.">'+esc(t.aiBaglam||'')+'</textarea>'+
       '<div class="helper">Örn: \'Çatı katına çıktım, elektrik panosunun yanındaki kablolar açıkta ve yıpranmış, üzerinde tozlanma var, yakınında yanıcı malzeme kutuları duruyordu.\'</div>'+
@@ -1019,8 +1053,8 @@ function refreshEtkList(){
   requestAnimationFrame(function(){ sheet.scrollTop = st; });
 }
 async function saveEntry(){
-  const tehlike = document.getElementById('fTehlike').value.trim();
-  const risk = document.getElementById('fRisk').value.trim();
+  const tehlike = document.getElementById('fTehlike').value.replace(/\s*\n\s*/g,' ').trim();
+  const risk = document.getElementById('fRisk').value.replace(/\s*\n\s*/g,' ').trim();
   const mevcut = document.getElementById('fMevcut').value.trim();
   const onlemler = document.getElementById('fOnlem').value.trim();
   const sorumlu = document.getElementById('fSorumlu').value.trim();
@@ -1623,8 +1657,8 @@ async function removeAiKey(){
 }
 
 async function aiSuggestOnlem(){
-  const tehlike = document.getElementById('fTehlike').value.trim();
-  const risk = document.getElementById('fRisk').value.trim();
+  const tehlike = document.getElementById('fTehlike').value.replace(/\s*\n\s*/g,' ').trim();
+  const risk = document.getElementById('fRisk').value.replace(/\s*\n\s*/g,' ').trim();
   const baglam = document.getElementById('fBaglam').value.trim();
   if(!tehlike || !risk){ showToast('Önce Tehlike/Faaliyet ve Risk alanlarını doldur'); return; }
   const btn = document.getElementById('aiSuggestBtn');
@@ -1634,7 +1668,7 @@ async function aiSuggestOnlem(){
     const etkGrupStr = formTemp.etkilenenler.map(e=>e.grup).filter(Boolean).join(', ');
     const mevcutMetin = (document.getElementById('fMevcut').value||'').trim();
     const sonuc = await callClaudeOnlem(tehlike, risk, etkGrupStr, baglam, mevcutMetin);
-    document.getElementById('fOnlem').value = sonuc.text;
+    document.getElementById('fOnlem').value = sonuc.text; autoGrow(document.getElementById('fOnlem'));
     formTemp.onlemler = sonuc.text;
     if(sonuc.kesildi){
       showToast('Öneri eklendi, ama uzun olduğu için yine de kesilmiş olabilir — kontrol et');
@@ -1731,7 +1765,7 @@ async function aiSuggestMevcut(){
   btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
   try{
     const sonuc = await callClaudeMevcut(tehlike, risk, baglam);
-    document.getElementById('fMevcut').value = sonuc.text;
+    document.getElementById('fMevcut').value = sonuc.text; autoGrow(document.getElementById('fMevcut'));
     formTemp.mevcut = sonuc.text;
     showToast(sonuc.kesildi ? 'Yazıldı ama kesilmiş olabilir — kontrol et' : 'Mevcut durum yazıldı — istersen düzenleyebilirsin');
   } catch(err){
