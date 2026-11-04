@@ -299,6 +299,51 @@ const ETKILENEN_GRUPLARI = [
   "Güvenlik Personeli","Hastalar","Ziyaretçiler","Tıbbi Sekreter / Otomasyon Görevlisi","Teknik Personel / İşçi","Diğer"
 ];
 
+// Yeni kayıtlar için birim bazında seçilebilen dört grup; mevcut kayıtlar otomatik değiştirilmez.
+const VARSAYILAN_ETKILENENLER = ['Doktor', 'Hemşire / Sağlık Memuru', 'Temizlik Personeli', 'Teknik Personel / İşçi'];
+const MIN_CIKTI_GRUP_SATIRI = 4;
+const MEVCUT_KURALLARI = "Mevcut Durum ve Tedbirler alanını 1-3 kısa, tarafsız ve tam cümleyle, tek paragraf olarak yaz. Başlık, madde imi, numaralama, öneri veya '-malı/-meli' kullanma. Bilgi önceliği: kullanıcının açıkça belirttiği saha tespitleri ve fotoğrafta görülen durum esas alınır. Bir alan adı, tehlike listesi veya yapılması istenen işlem, mevcut tedbirlerin uygulandığına dair kanıt değildir. Gözlem varsa yalnızca bu gözlemi özetle; açıkça belirtilen eksikliği veya uygunsuzluğu gizleme. Gözlem yoksa tanımlanan faaliyetin doğasındaki çalışma/temas koşulunu genel ifadeyle anlat; bunun sahada gözlemlendiği izlenimini verme. Ardından 'Bu kayıt için sahaya özgü mevcut tedbir bilgisi belirtilmemiştir.' gibi kısa bir cümleyle bilgi sınırını belirt. Hastanenin kurumsallığına dayanarak eğitim, bakım, periyodik kontrol, koruyucu donanım, güvenli depolama, talimat, uygunluk veya denetimin varlığını/yokluğunu varsayma. Fotoğrafta görünmeyen bir tedbirin sahada bulunmadığı sonucuna varma; gerekirse yalnızca fotoğraftan doğrulanamadığını belirt. Risk puanını düşürmek veya planlanan faaliyetleri tamamlanmış göstermek için mevcut durum üretme. Örnek (saha bilgisi yok): 'Mikrotom bıçaklarının değiştirilmesi sırasında kesici yüzeyle temas olasılığı bulunmaktadır. Bu kayıt için sahaya özgü mevcut tedbir bilgisi belirtilmemiştir.' Örnek (kullanıcı zeminin ıslak, uyarı levhasının yerinde olduğunu belirtti): 'Zemin ıslaktır. Islak zemin uyarı levhası bulunmaktadır.' Örnekleri yalnızca anlatım biçimi olarak kullan; konuya göre yaz.";
+function varsayilanGruplar(p){
+  const g = p && p.varsayilanGruplar;
+  return Array.isArray(g) && g.length===4 && g.every(x=>typeof x==='string' && x.trim())
+    ? g.map(x=>x.trim()) : VARSAYILAN_ETKILENENLER.slice();
+}
+function yeniEtkilenenler(p, puan){
+  return varsayilanGruplar(p).map(function(grup){
+    return {id:uid(), grup:grup, olasilik:puan, siddet:puan, olasilikSonra:null, siddetSonra:null};
+  });
+}
+function kisaMevcut(metin, foto){
+  const t = typeof metin==='string' ? metin.replace(/\s+/g,' ').trim() : '';
+  if(!t) return foto ? 'Fotoğraftan mevcut durum ve tedbirler hakkında yeterli bilgi edinilememektedir.'
+    : 'Bu kayıt için sahaya özgü mevcut durum ve tedbir bilgisi belirtilmemiştir.';
+  const cumleler = typeof Intl!=='undefined' && Intl.Segmenter
+    ? Array.from(new Intl.Segmenter('tr', {granularity:'sentence'}).segment(t), x=>x.segment.trim())
+    : (t.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[t]).map(x=>x.trim());
+  const sonuc = cumleler.filter(Boolean).slice(0,3).join(' ');
+  return /[.!?]$/.test(sonuc) ? sonuc : sonuc+'.';
+}
+function grupOzetiHtml(){
+  return '<div class="helper">Hazır meslek grupları: '+varsayilanGruplar(state.project).map(esc).join(', ')+
+    '. Birim İşlemleri → Varsayılan Meslek Grupları bölümünden değiştirebilirsin. Başlangıç puanları saha değerlendirmesi değildir; O/Ş değerlerini uygulamada veya Excel’de düzenle.</div>';
+}
+function openGrupAyarlari(){
+  const gruplar = varsayilanGruplar(state.project);
+  openModal('<div class="modal-title">Varsayılan Meslek Grupları <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Bu birimde oluşturulacak her yeni riskte aşağıdaki dört grup hazır gelir. Birime uygun adları seçebilir veya yazabilirsin. Mevcut risklerdeki grup ve puanlar korunur.</div>'+
+    gruplar.map(function(g,i){ return '<div class="field"><label>Meslek grubu '+(i+1)+'</label><input id="varsGrup'+i+'" list="meslekOnerileri" value="'+esc(g)+'"></div>'; }).join('')+
+    '<datalist id="meslekOnerileri">'+ETKILENEN_GRUPLARI.filter(g=>g!=='Diğer').map(g=>'<option value="'+esc(g)+'"></option>').join('')+'</datalist>'+
+    '<div class="modal-btn-row"><button class="btn ghost" onclick="closeModal()">Vazgeç</button><button class="btn primary" onclick="saveGrupAyarlari()">Kaydet</button></div>');
+}
+async function saveGrupAyarlari(){
+  const gruplar = [0,1,2,3].map(i=>document.getElementById('varsGrup'+i).value.trim());
+  if(gruplar.some(g=>!g)){ showToast('Dört meslek grubunu da doldur'); return; }
+  if(new Set(gruplar.map(g=>g.toLocaleLowerCase('tr'))).size!==4){ showToast('Dört farklı meslek grubu yaz'); return; }
+  state.project.varsayilanGruplar = gruplar;
+  await saveProject(state.project);
+  closeModal(); showToast('Bu birimin yeni riskleri için dört grup kaydedildi');
+}
+
 const DURUMLAR = {
   yapilmadi: {label:'Yapılmadı', hex:'#B23B2E', hexbg:'#FAE1DB'},
   devam:     {label:'Çalışma Devam Ediyor', hex:'#A8730C', hexbg:'#FBF0D8'},
@@ -683,6 +728,7 @@ function openProjectMenu(){
     '<div class="modal-title">Birim İşlemleri <span class="x" onclick="closeModal()">✕</span></div>'+
     '<div style="display:flex; flex-direction:column; gap:9px;">'+
       '<button class="btn ghost block" onclick="closeModal(); openRenameModal();">✏️ Birim Adını / Kurumu Düzenle</button>'+
+      '<button class="btn ghost block" onclick="openGrupAyarlari()">👥 Varsayılan Meslek Grupları</button>'+
       '<button class="btn primary block" onclick="closeModal(); exportExcel();">📊 Excel Olarak İndir (.xlsx)</button>'+
       '<button class="btn ghost block" onclick="closeModal(); exportPdf();">🖨️ Yazdır / PDF Olarak Kaydet (A3 yatay)</button>'+
       '<button class="btn danger block" onclick="closeModal(); confirmDeleteProject(\''+state.project.id+'\',\''+esc(state.project.isim).replace(/'/g,"\\'")+'\')">🗑 Birimi Sil</button>'+
@@ -887,7 +933,7 @@ function openEntryForm(existingId){
       if(g>=0){ formTemp.terminGun = g; } else { formTemp.terminGun = ''; formTemp.terminLegacy = formTemp.termin; }
     }
   } else {
-    formTemp = { id:null, tehlike:'', risk:'', mevcut:'', onlemler:'', sorumlu:'', termin:'', terminGun:'', kapatma:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:[ bosEtk() ] };
+    formTemp = { id:null, tehlike:'', risk:'', mevcut:'', onlemler:'', sorumlu:'', termin:'', terminGun:'', kapatma:'', durum:'yapilmadi', notlar:'', aiBaglam:'', etkilenenler:yeniEtkilenenler(p, 3) };
   }
   renderEntryForm();
 }
@@ -910,7 +956,7 @@ function renderEntryForm(){
     '<div class="field">'+
       '<div class="ai-row">'+
         '<label>Mevcut Durum ve Tedbirler</label>'+
-        '<button type="button" id="aiMevcutBtn" class="btn ghost sm" onclick="aiSuggestMevcut()" style="flex-shrink:0;">🤖 Bağlamdan Yaz</button>'+
+        '<button type="button" id="aiMevcutBtn" class="btn ghost sm" onclick="aiSuggestMevcut()" style="flex-shrink:0;">🤖 Mevcut Durum Yaz</button>'+
       '</div>'+
       '<textarea id="fMevcut" placeholder="Sahada şu an var olan durum ve önlemler (fotoğrafta görünenler veya senin gözlemin)...">'+esc(t.mevcut||'')+'</textarea>'+
     '</div>'+
@@ -1155,7 +1201,8 @@ function resizeImageToBase64(file, maxDim){
 function openCokluRiskModal(){
   openModal(
     '<div class="modal-title">Çoklu Risk Ekle <span class="x" onclick="closeModal()">✕</span></div>'+
-    '<div class="confirm-text">Her satıra bir Tehlike/Faaliyet yaz. AI, her satır için ayrı bir risk kaydı oluşturup Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik dolduracak. Mevcut Durum ve Tedbirler/Etkilenenler/Olasılık/Şiddet/Durum yine sana kalacak, sonradan gözden geçirip dolduracaksın.</div>'+
+    '<div class="confirm-text">Her satıra bir Tehlike/Faaliyet yaz. AI, her satır için ayrı bir risk kaydı oluşturup Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik dolduracak. Mevcut Durum da 1–3 kısa cümleyle doldurulur; saha bilgisi yoksa tedbirlerin uygulandığı varsayılmaz. Her riskte dört meslek grubu hazır gelir. Olasılık/Şiddet/Durum değerlerini değerlendirmene göre düzenleyebilirsin.</div>'+
+    grupOzetiHtml()+
     '<div class="field"><label>Tehlike / Faaliyet Listesi (her satıra bir tane)</label>'+
     '<textarea id="cokluListe" style="min-height:170px;" placeholder="Örn:\nKıyma makinesinin kullanımı\nSıcak yağ ile çalışma\nBıçak bileme işlemi\nIslak zeminde çalışma"></textarea></div>'+
     '<div class="modal-btn-row">'+
@@ -1180,13 +1227,13 @@ async function startCokluRiskEkle(){
   for(let i=0;i<liste.length;i++){
     showToast('İşleniyor... ('+(i+1)+'/'+liste.length+')');
     try{
-      const sonuc = await callClaudeTehlikeSatiri(liste[i]);
+      const sonuc = await callClaudeTehlikeSatiri(liste[i], p.isim || '');
       p.sonRK = (p.sonRK||0)+1;
       p.satirlar.push({
         id: uid(), rk: p.sonRK,
-        tehlike: liste[i], risk: (sonuc.risk||'').trim(), onlemler: (sonuc.onlem||'').trim(),
+        tehlike: liste[i], risk: (sonuc.risk||'').trim(), mevcut: kisaMevcut(sonuc.mevcut, false), onlemler: (sonuc.onlem||'').trim(),
         durum: 'yapilmadi', notlar: '', aiBaglam: '', kaynak: 'coklu',
-        etkilenenler: [{id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:1, siddet:1}]
+        etkilenenler: yeniEtkilenenler(p, 1)
       });
       basarili++;
     } catch(err){
@@ -1203,7 +1250,7 @@ async function startCokluRiskEkle(){
   }
 }
 async function callClaudeTehlikeSatiri(tehlikeMetni, alanBaglam){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir 'Tehlike/Faaliyet' tanımı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde, bu tehlikenin doğurabileceği 'risk' (olası sonuç, kısa) ve 'onlem' (planlanan iyileştirici faaliyetler; tek satır düz metin, içine gerçek satır sonu KOYMA) alanlarını üret. 'onlem' alanı için şu kurallara uy: "+ONLEM_KURALLARI+" SADECE aşağıdaki JSON nesnesi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme:\n{\"risk\":\"...\",\"onlem\":\"...\"}";
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Sana bir Tehlike/Faaliyet tanımı ve varsa birim/alan bağlamı verilecek. 6331 sayılı Kanun ve L Tipi Risk Değerlendirme Matrisi mantığına uygun şekilde risk (olası sonuç, kısa), mevcut (mevcut durum ve tedbirler) ve onlem (planlanan iyileştirici faaliyetler) alanlarını üret. Mevcut durum için kurallar: "+MEVCUT_KURALLARI+" Planlanan faaliyetler için kurallar: "+ONLEM_KURALLARI+" Mevcut durumdaki bilgi eksikliğini tedbirin varlığı veya yokluğu olarak yorumlama. Her alan tek satır düz metin olsun. SADECE şu JSON nesnesini döndür, açıklama veya markdown ekleme: {\"risk\":\"...\",\"mevcut\":\"...\",\"onlem\":\"...\"}";
   const kullanici = "Tehlike / Faaliyet: "+tehlikeMetni+(alanBaglam?("\nBirim/alan ve kategori: "+alanBaglam):"");
   let model = varsayilanModel();
   const headers = {"content-type":"application/json"};
@@ -1257,7 +1304,8 @@ function alanTaramaIptalEt(){
 function openAlanTaramaModal(){
   openModal(
     '<div class="modal-title">Alan Taraması (Tek Komut) <span class="x" onclick="closeModal()">✕</span></div>'+
-    '<div class="confirm-text">Bir birim, alan veya faaliyet tanımla. AI önce o alan için tüm olası tehlike başlıklarını (genel ve alana özgü) listeler; sen gözden geçirip onaylayınca her biri için Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik doldurur. Mevcut Durum/Etkilenenler/Olasılık/Şiddet/Durum sana kalır.</div>'+
+    '<div class="confirm-text">Bir birim, alan veya faaliyet tanımla. AI önce o alan için tüm olası tehlike başlıklarını (genel ve alana özgü) listeler; sen gözden geçirip onaylayınca her biri için Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik doldurur. Mevcut Durum da 1–3 kısa cümleyle doldurulur; saha bilgisi yoksa tedbirlerin uygulandığı varsayılmaz. Her riskte dört meslek grubu hazır gelir. Olasılık/Şiddet/Durum değerlerini değerlendirmene göre düzenleyebilirsin.</div>'+
+    grupOzetiHtml()+
     '<div class="field"><label>Alan / Komut</label>'+
     '<textarea id="alanKomut" style="min-height:140px;" placeholder="Örn: Hastane ameliyathane birimi için süreç, cihaz ve donanım dahil tüm unsurları düşünerek tanımlanabilecek tüm riskler için satırları oluştur"></textarea></div>'+
     '<div class="modal-btn-row">'+
@@ -1336,7 +1384,7 @@ async function alanSatirlariOlustur(maddeler, komut, alanAdi){
     '<div class="modal-btn-row" style="margin-top:14px;"><button class="btn ghost" onclick="alanTaramaIptalEt()">İptal et</button></div>'
   );
   async function dene(m){
-    const baglam = (m.k ? m.k+' — ' : '') + alanEtiket;
+    const baglam = (m.k ? m.k+' — ' : '') + alanEtiket + (komut ? '\nKullanıcının alan açıklaması ve talimatı: '+komut : '');
     try{ return await callClaudeTehlikeSatiri(m.t, baglam); }
     catch(e1){
       await new Promise(function(r){ setTimeout(r, 2500); });
@@ -1353,9 +1401,9 @@ async function alanSatirlariOlustur(maddeler, komut, alanAdi){
         p.sonRK = (p.sonRK||0)+1;
         p.satirlar.push({
           id: uid(), rk: p.sonRK,
-          tehlike: m.t, risk: (sonuc.risk||'').trim(), onlemler: (sonuc.onlem||'').trim(),
+          tehlike: m.t, risk: (sonuc.risk||'').trim(), mevcut: kisaMevcut(sonuc.mevcut, false), onlemler: (sonuc.onlem||'').trim(),
           durum: 'yapilmadi', notlar: '', aiBaglam: '', kaynak: 'alan', kat: m.k || '',
-          etkilenenler: [{id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:1, siddet:1}]
+          etkilenenler: yeniEtkilenenler(p, 1)
         });
         basarili++;
         if(basarili % 10 === 0){ try{ await saveProject(p); }catch(e){} }
@@ -1433,6 +1481,7 @@ function openPhotoContextModal(){
   openModal(
     '<div class="modal-title">Fotoğraf Analizi <span class="x" onclick="cancelPhotoAnalysis()">✕</span></div>'+
     '<div class="confirm-text">'+n+' fotoğraf seçildi ve hepsi TEK bir analizde birlikte değerlendirilecek. Boş bırakırsan AI kendi gördüğü tüm tehlikeleri tarar. Bir şey yazarsan (örn. "sadece dolap üstündeki depolamaya bak, 1 satır oluştur"), AI SADECE senin yazdığın konuyla sınırlı kalır ve fotoğraf sayısı ne olursa olsun talimatındaki kapsam/adede uyar.</div>'+
+    grupOzetiHtml()+
     '<div class="field"><label>Ek Talimat / Dikkat Edilecek Husus (opsiyonel)</label>'+
     '<textarea id="photoEkTalimat" placeholder="Örn: Tavandaki nem lekesine özellikle dikkat et ve ayrı bir satır olarak değerlendir."></textarea></div>'+
     '<div class="modal-btn-row">'+
@@ -1470,9 +1519,9 @@ async function startPhotoAnalysis(){
           p.sonRK = (p.sonRK||0)+1;
           p.satirlar.push({
             id: uid(), rk: p.sonRK,
-            tehlike: (item.tehlike||'').trim(), risk: (item.risk||'').trim(), mevcut: (item.mevcut||'').trim(), onlemler: (item.onlem||'').trim(),
+            tehlike: (item.tehlike||'').trim(), risk: (item.risk||'').trim(), mevcut: kisaMevcut(item.mevcut, true), onlemler: (item.onlem||'').trim(),
             durum: 'yapilmadi', notlar: '', aiBaglam: '', kaynak: 'foto',
-            etkilenenler: [{id:uid(), grup:ETKILENEN_GRUPLARI[0], olasilik:1, siddet:1}]
+            etkilenenler: yeniEtkilenenler(p, 1)
           });
           toplamSatir++;
         });
@@ -1520,8 +1569,9 @@ async function callClaudeFotoAnaliz(base64Listesi, ekTalimat){
   const odakliTarama = "Görevin: kullanıcının SANA ÖZELLİKLE BELİRTTİĞİ husus/talimat dışında HİÇBİR ŞEYİ değerlendirmemek, sadece o talimatla sınırlı kalmaktır.\n\nÇOK ÖNEMLİ KURAL: Kullanıcı bir konuya/duruma odaklanmanı istediğinde, fotoğraf(lar)da görünen BAŞKA hiçbir ekipman, makine, malzeme veya tehlikeyi ASLA ayrı satır olarak ekleme — bunları görsen bile yok say. Kullanıcının talimatı senin kapsamının TAMAMIdır, senin kendi ek gözlemlerinle genişletilecek bir taban değildir. Kullanıcı 'sadece 1 satır oluştur' veya 'tek bir satır' derse, tam olarak talimatta istenen konu için 1 satır üret — gönderilen TÜM fotoğraflar için toplamda bu kadar satır üret, fotoğraf başına değil (aynı sorun birden çok fotoğrafta görünüyorsa bunu TEK satırda birleştir, tekrar etme). Kullanıcı satır sayısı belirtmemişse, talimatın kapsadığı konuyu makul şekilde ayrı kalemlere böl ama kesinlikle konu dışına çıkma."+cokluNot+"\n\nEğer fotoğraf(lar)da kullanıcının belirttiği husus/durum hiç yoksa veya tespit edilemiyorsa, boş liste [] döndür — konu dışı başka bir şey bulup onu raporlama.";
   const sistem = "Sen Türkiye'de bir hastanede/işyerinde çalışan İş Sağlığı ve Güvenliği (İSG) uzmanısın. "
     + ((ekTalimat && ekTalimat.trim()) ? odakliTarama : varsayilanTarama)
+    + "\n\n'mevcut' alanı için kurallar: " + MEVCUT_KURALLARI
     + "\n\n'onlem' alanı için kurallar: " + ONLEM_KURALLARI
-    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Boş liste [] SADECE fotoğrafta hiçbir tanımlanabilir ekipman/alet/madde/faaliyet yoksa (örn. boş duvar, bulanık görüntü) kullanılmalı.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünen bir tedbir yoksa 'Fotoğrafta belirgin bir tedbir görünmemektedir.' yaz, görmediğini uydurma\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut durumu yalnızca durum tespiti olarak dikkate alıp kurallardaki (5) numaralı maddeye göre yaz; tek satır düz metin, yazım kuralları yukarıda verilmiştir\"}]";
+    + "\n\nSadece fotoğrafta GERÇEKTEN GÖRÜNEN unsurları yaz (görmediğini uydurma). Kullanıcı belirli bir kapsam verdiyse ve o husus tespit edilemiyorsa boş liste [] döndür. Genel taramada anlamlı bir İSG tehlike kaynağı tespit edilemiyorsa da boş liste [] döndür.\n\nSADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti (```), başlık veya metin ekleme. Her 'onlem' alanını tek satırlık düz metin olarak yaz, içine gerçek satır sonu (enter) KOYMA:\n[{\"tehlike\":\"kısa tehlike/faaliyet tanımı\",\"risk\":\"olası risk/sonuç\",\"mevcut\":\"fotoğrafta GÖRÜNEN mevcut durum ve alınmış tedbirler, 1-3 kısa tespit cümlesi, tek satır; görünmeyen tedbirleri var veya yok sayma; gözlem yeterli değilse bunun fotoğraftan doğrulanamadığını belirt\",\"onlem\":\"planlanan iyileştirici faaliyetler: mevcut durumu yalnızca durum tespiti olarak dikkate alıp kurallardaki (5) numaralı maddeye göre yaz; tek satır düz metin, yazım kuralları yukarıda verilmiştir\"}]";
   const kullaniciMetni = (ekTalimat && ekTalimat.trim())
     ? 'Bu fotoğraf(lar)ı yukarıdaki talimata göre incele ve SADECE JSON dizisi olarak yanıt ver. Kullanıcının talimatı — kapsamın SADECE budur, bunun dışına çıkma: "'+ekTalimat.trim()+'"'
     : 'Bu fotoğraf(lar)daki İSG tehlikelerini yukarıdaki talimata göre SADECE JSON dizisi olarak listele.';
@@ -1749,9 +1799,10 @@ async function claudeMetinIstegi(sistem, kullanici, limit1, limit2){
   return sonuc;
 }
 async function callClaudeMevcut(tehlike, risk, baglam){
-  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Risk değerlendirme formundaki 'Mevcut Durum ve Tedbirler' sütununu dolduruyorsun. Bu sütun, sahada ŞU AN var olan durumu ve halihazırda alınmış tedbirleri anlatır; yapılması gerekenleri veya öneri YAZMA. Yalnızca kullanıcının verdiği saha gözlemlerine dayan; gözlemde olmayan hiçbir tedbiri veya durumu uydurma. 1-4 kısa, tarafsız tespit cümlesi yaz. Gözlemde bir tedbirin yokluğu açıkça belirtilmişse bunu da tespit olarak yaz. Başlık, giriş cümlesi, madde imi veya numaralama kullanma; cevabını tam bir cümleyle bitir.";
-  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+"\nSahada gözlemlenen detaylar: "+baglam+"\n\nBu gözlemlere göre 'Mevcut Durum ve Tedbirler' metnini yaz.";
-  return await claudeMetinIstegi(sistem, kullanici, 500, 1000);
+  const sistem = "Sen Türkiye'de çalışan bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Risk değerlendirme formundaki Mevcut Durum ve Tedbirler sütununu dolduruyorsun. "+MEVCUT_KURALLARI;
+  const kullanici = "Tehlike / Faaliyet: "+tehlike+"\nRisk: "+risk+(baglam ? "\nKullanıcının saha gözlemleri: "+baglam : "\nSahaya özgü gözlem bilgisi verilmedi.")+"\nBu kayıt için mevcut durum metnini yaz.";
+  const sonuc = await claudeMetinIstegi(sistem, kullanici, 500, 1000);
+  return {text:kisaMevcut(sonuc.text, false), kesildi:sonuc.kesildi};
 }
 async function aiSuggestMevcut(){
   syncFormFields();
@@ -1759,7 +1810,6 @@ async function aiSuggestMevcut(){
   const risk = (formTemp.risk||'').trim();
   const baglam = (formTemp.aiBaglam||'').trim();
   if(!tehlike || !risk){ showToast('Önce Tehlike/Faaliyet ve Risk alanlarını doldur'); return; }
-  if(!baglam){ showToast('Önce "AI İçin Ek Bağlam" kutusuna sahada gördüğünü yaz'); return; }
   const btn = document.getElementById('aiMevcutBtn');
   const eski = btn.textContent;
   btn.textContent = '⏳ Yazılıyor...'; btn.disabled = true;
@@ -1863,15 +1913,15 @@ function buildSheetModel(p){
   add(17,17,17,17,'RS',Object.assign({fill:RENK.teal},hw));
   add(16,18,17,18,'Açıklama',Object.assign({fill:RENK.teal},hw));
 
-  /* --- Satır 18+: her risk = 5 satırlık blok (S = 18 + (N-1)*5) --- */
+  /* --- Satır 18+: her risk en az dört meslek grubu satırı; birleşimler blok boyuna uyar. --- */
   let r = TPL.first, blokNo = 0;
   const blokListesi = [];
   const sirali = p.satirlar.slice().sort(function(a,b){ return a.rk-b.rk; });
   sirali.forEach(function(s){
     const gruplar = s.etkilenenler || [];
-    const parcalar = [gruplar];            // tek blok: satır sayısı = etkilenen sayısı (en az 1)
+    const parcalar = [gruplar];            // tek blok: en az dört satır; eksik gruplar çıktıda boş ve düzenlenebilir kalır
     parcalar.forEach(function(chunk, ci){
-      const N = Math.max(1, chunk.length);
+      const N = Math.max(MIN_CIKTI_GRUP_SATIRI, chunk.length);
       const S = r, E = r+N-1;
       const shade = (blokNo%2===0) ? RENK.shade : RENK.white;
       blokNo++;
@@ -1931,6 +1981,7 @@ function buildExcelWorkbook(p, EJ){
   const model = buildSheetModel(p);
   const wb = new EJ.Workbook();
   wb.creator = 'Saha Risk Kaydı';
+  wb.calcProperties.fullCalcOnLoad = true;
   const ws = wb.addWorksheet(TPL.sheet, {
     views: [{showGridLines:false}],
     pageSetup: {orientation:'landscape', paperSize:8, fitToPage:true, fitToWidth:1, fitToHeight:0,
