@@ -1301,64 +1301,114 @@ function alanTaramaIptalEt(){
   alanTaramaIptal = true;
   showToast('İptal ediliyor... devam eden satırlar bitince duracak');
 }
+let alanOnayListe = [];
+function alanBloklariOku(ham){
+  ham = ham.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'");
+  let alan = ''; const out = []; const gorulen = {};
+  (ham.match(/\{[^{}]*\}/g) || []).forEach(function(blok){
+    try{
+      const o = JSON.parse(blok.replace(/,\s*\}/g,'}'));
+      if(o.alan && !alan){ alan = String(o.alan).trim(); }
+      const t = String(o.t || '').replace(/\|/g,'/').trim();
+      if(t.length < 3) return;
+      const a = t.toLowerCase(); if(gorulen[a]) return; gorulen[a] = 1;
+      out.push({ k: String(o.k || '').replace(/\|/g,'/').trim(), t: t, n: String(o.n || '').trim() });
+    } catch(e){}
+  });
+  return { alan: alan, maddeler: out };
+}
+async function alanApiAnahtariVar(){
+  if(HAS_CLOUD_STORAGE) return true;
+  const key = await storageGet('ai_api_key');
+  if(!key){ showToast('Önce 🤖 ikonundan API anahtarını gir'); return false; }
+  return true;
+}
 function openAlanTaramaModal(){
   openModal(
-    '<div class="modal-title">Alan Taraması (Tek Komut) <span class="x" onclick="closeModal()">✕</span></div>'+
-    '<div class="confirm-text">Bir birim, alan veya faaliyet tanımla. AI önce o alan için tüm olası tehlike başlıklarını (genel ve alana özgü) listeler; sen gözden geçirip onaylayınca her biri için Belirlenen Risk ve Planlanan İyileştirici Faaliyetler kısımlarını otomatik doldurur. Mevcut Durum da 1–3 kısa cümleyle doldurulur; saha bilgisi yoksa tedbirlerin uygulandığı varsayılmaz. Her riskte dört meslek grubu hazır gelir. Olasılık/Şiddet/Durum değerlerini değerlendirmene göre düzenleyebilirsin.</div>'+
+    '<div class="modal-title">Alan Taraması <span class="x" onclick="closeModal()">✕</span></div>'+
+    '<div class="confirm-text">Adım 1: AI alandaki cihaz, süreç ve kullanılan maddelerin envanterini çıkarır; sen düzenlersin. Adım 2: Her cihaz/süreç için farklı tehlike kaynakları (radyasyon, elektrik, kimyasal vb.) ayrı satır olarak listelenir; listede ayrıca "Ek öneriler" bölümü gelir. Adım 3: Seçtiğin satırların risk, mevcut durum ve planlanan faaliyetleri doldurulur.</div>'+
     grupOzetiHtml()+
     '<div class="field"><label>Alan / Komut</label>'+
-    '<textarea id="alanKomut" style="min-height:140px;" placeholder="Örn: Hastane ameliyathane birimi için süreç, cihaz ve donanım dahil tüm unsurları düşünerek tanımlanabilecek tüm riskler için satırları oluştur"></textarea></div>'+
-    '<div class="modal-btn-row">'+
-      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
-      '<button class="btn primary" onclick="startAlanTarama()">Listele</button>'+
-    '</div>'
+    '<textarea id="alanKomut" style="min-height:110px;" placeholder="Örn: Röntgen, nükleer tıp, PET-CT ve MR alanları"></textarea></div>'+
+    '<div class="field"><label>Detay seviyesi</label><select id="alanDetay"><option value="ozet">Özet (yaklaşık 25-35 satır)</option><option value="standart" selected>Standart (yaklaşık 50-70 satır)</option><option value="ayrintili">Ayrıntılı (100+ satır)</option></select></div>'+
+    '<div class="field"><label style="display:flex; gap:8px; align-items:center;"><input type="checkbox" id="alanOrtak" checked> Ortak tehlikeleri de ekle (yangın, tahliye, zemin, aydınlatma, atık vb.)</label></div>'+
+    '<div class="modal-btn-row"><button class="btn ghost" onclick="closeModal()">Vazgeç</button><button class="btn primary" onclick="startAlanEnvanter()">Envanter Çıkar</button></div>'
   );
   setTimeout(function(){ const t=document.getElementById('alanKomut'); if(t) t.focus(); },80);
 }
-async function startAlanTarama(){
+async function startAlanEnvanter(){
   const komut = (document.getElementById('alanKomut').value || '').trim();
   if(!komut){ showToast('Alanı veya komutu yaz'); return; }
-  if(!HAS_CLOUD_STORAGE){
-    const key = await storageGet('ai_api_key');
-    if(!key){ showToast('Önce 🤖 ikonundan API anahtarını gir'); return; }
-  }
-  openModal('<div class="modal-title">Alan taranıyor...</div><div class="confirm-text">AI tehlike başlıklarını listeliyor. Bu işlem birkaç on saniye sürebilir.</div>');
+  const detay = document.getElementById('alanDetay').value;
+  const ortak = document.getElementById('alanOrtak').checked;
+  if(!(await alanApiAnahtariVar())) return;
+  openModal('<div class="modal-title">Envanter çıkarılıyor...</div><div class="confirm-text">AI alandaki cihaz, süreç ve maddeleri listeliyor.</div>');
   try{
-    const sonuc = await callClaudeAlanListesi(komut);
-    if(!sonuc.maddeler.length){
-      closeModal();
-      showErrorDetailModal(['AI liste döndürmedi. Komutu daha açık yazıp tekrar dene.'], 'Liste Oluşturulamadı');
-      return;
-    }
-    alanBekleyen = { komut: komut, alan: sonuc.alan };
-    openAlanOnayModal(sonuc);
-  } catch(err){
-    closeModal();
-    showErrorDetailModal([err.message], 'Liste Oluşturulamadı');
-  }
+    const env = await callClaudeAlanEnvanter(komut);
+    if(!env.maddeler.length){ closeModal(); showErrorDetailModal(['AI envanter döndürmedi. Komutu daha açık yazıp tekrar dene.'], 'Envanter Oluşturulamadı'); return; }
+    alanBekleyen = { komut: komut, alan: env.alan, detay: detay, ortak: ortak };
+    const satirlar = env.maddeler.map(function(m){ return (m.k ? m.k+' | ' : '') + m.t; }).join('\n');
+    openModal(
+      '<div class="modal-title">Alan envanteri ('+env.maddeler.length+') <span class="x" onclick="closeModal()">✕</span></div>'+
+      '<div class="confirm-text">Burada olmayan cihaz/süreçleri ekle, alanda bulunmayanları sil ("Tür | Öğe" biçimi). Tehlikeler bu listeden türetilir; bilmediğin bir şeyi AI\'ya bırakmak istersen ona dokunma.</div>'+
+      '<div class="field"><textarea id="alanEnvanter" style="min-height:300px; font-size:13px;">'+esc(satirlar)+'</textarea></div>'+
+      '<div class="modal-btn-row"><button class="btn ghost" onclick="closeModal()">Vazgeç</button><button class="btn primary" onclick="startAlanTarama()">Tehlikeleri Listele</button></div>'
+    );
+  } catch(err){ closeModal(); showErrorDetailModal([err.message], 'Envanter Oluşturulamadı'); }
 }
-function openAlanOnayModal(sonuc){
-  const satirlar = sonuc.maddeler.map(function(m){ return (m.k ? m.k+' | ' : '') + m.t; }).join('\n');
-  const n = sonuc.maddeler.length;
-  const dk = Math.max(1, Math.round(n*2/60));
+async function startAlanTarama(){
+  const envanter = (document.getElementById('alanEnvanter').value || '').trim();
+  if(!envanter){ showToast('Envanter boş'); return; }
+  const b = alanBekleyen;
+  openModal('<div class="modal-title">Tehlikeler listeleniyor...</div><div class="confirm-text">Birkaç on saniye sürebilir; ardından "Ek öneriler" için ikinci tarama yapılır.</div>');
+  try{
+    const sonuc = await callClaudeAlanListesi(b.komut, envanter, b.detay, b.ortak);
+    if(!sonuc.maddeler.length){ closeModal(); showErrorDetailModal(['AI liste döndürmedi. Tekrar dene.'], 'Liste Oluşturulamadı'); return; }
+    let ek = [];
+    try{ ek = await callClaudeAlanEk(b.komut, envanter, sonuc.maddeler); }catch(e){ ek = []; }
+    if(sonuc.alan) b.alan = sonuc.alan;
+    b.kesildi = sonuc.kesildi;
+    alanOnayListe = sonuc.maddeler.map(function(m){ return { k:m.k, t:m.t, n:'', sec:true, ek:false }; })
+      .concat(ek.map(function(m){ return { k:'Ek öneriler (isteğe bağlı)', t:m.t, n:m.n, sec:false, ek:true, kk:m.k }; }));
+    renderAlanOnay();
+  } catch(err){ closeModal(); showErrorDetailModal([err.message], 'Liste Oluşturulamadı'); }
+}
+function renderAlanOnay(){
+  const gruplar = []; const idx = {};
+  alanOnayListe.forEach(function(m,i){
+    const g = m.k || 'Diğer';
+    if(!(g in idx)){ idx[g] = gruplar.length; gruplar.push({ ad:g, ogeler:[] }); }
+    gruplar[idx[g]].ogeler.push(i);
+  });
+  const html = gruplar.map(function(g,gi){
+    const hepsi = g.ogeler.every(function(i){ return alanOnayListe[i].sec; });
+    return '<div style="margin-bottom:10px;"><label style="display:flex; gap:8px; align-items:center; font-weight:600; font-size:13px; background:#E4E9EA; padding:6px 8px; border-radius:6px;"><input type="checkbox" '+(hepsi?'checked':'')+' onchange="alanOnayGrup('+gi+',this.checked)"> '+esc(g.ad)+' ('+g.ogeler.length+')</label>'+
+      g.ogeler.map(function(i){
+        const m = alanOnayListe[i];
+        return '<label style="display:flex; gap:8px; align-items:flex-start; padding:5px 8px; font-size:13px;"><input type="checkbox" data-g="'+gi+'" '+(m.sec?'checked':'')+' onchange="alanOnayListe['+i+'].sec=this.checked"> <span>'+esc(m.t)+(m.n?'<br><small style="color:#5A6B72;">Neden önerildi: '+esc(m.n)+'</small>':'')+'</span></label>';
+      }).join('')+'</div>';
+  }).join('');
+  const n = alanOnayListe.length;
   openModal(
     '<div class="modal-title">'+n+' madde bulundu <span class="x" onclick="closeModal()">✕</span></div>'+
-    '<div class="confirm-text">Gözden geçir: istemediğin satırı sil, gerekirse düzenle ("Kategori | Tehlike" biçimi). Onaylayınca her satır için ayrı AI çağrısı yapılır; tahmini süre yaklaşık '+dk+' dk, maliyet seçili modele göre artar.'+
-    (sonuc.kesildi ? ' Liste uzun olduğu için yarıda kesilmiş olabilir; eksik kategori varsa komutu bölerek tekrar çalıştır.' : '')+'</div>'+
-    '<div class="field"><textarea id="alanListe" style="min-height:300px; font-size:13px;">'+esc(satirlar)+'</textarea></div>'+
-    '<div class="modal-btn-row">'+
-      '<button class="btn ghost" onclick="closeModal()">Vazgeç</button>'+
-      '<button class="btn primary" onclick="startAlanSatirOlustur()">Satırları Oluştur</button>'+
-    '</div>'
+    '<div class="confirm-text">İstediklerini işaretle; kategori başlığındaki kutu hepsini açar/kapatır. "Ek öneriler" varsayılan olarak işaretsizdir, gerekçesine bakıp seç. Onaylayınca her satır için ayrı AI çağrısı yapılır.'+(alanBekleyen.kesildi?' Liste uzun olduğu için yarıda kesilmiş olabilir.':'')+'</div>'+
+    '<div style="max-height:50vh; overflow-y:auto; margin-bottom:10px;">'+html+'</div>'+
+    '<div class="field"><input type="text" id="alanEkSatir" placeholder="Listeye kendin satır ekle (Tehlike / faaliyet)" style="width:100%;"> <button class="btn ghost" onclick="alanSatirEkle()">+ Ekle</button></div>'+
+    '<div class="modal-btn-row"><button class="btn ghost" onclick="closeModal()">Vazgeç</button><button class="btn primary" onclick="startAlanSatirOlustur()">Seçilenleri Oluştur</button></div>'
   );
 }
+function alanOnayGrup(gi, durum){
+  document.querySelectorAll('input[data-g="'+gi+'"]').forEach(function(c){ c.checked = durum; c.onchange(); });
+}
+function alanSatirEkle(){
+  const t = (document.getElementById('alanEkSatir').value || '').trim();
+  if(!t) return;
+  alanOnayListe.push({ k:'Eklenen', t:t, n:'', sec:true, ek:false });
+  renderAlanOnay();
+}
 async function startAlanSatirOlustur(){
-  const ham = (document.getElementById('alanListe').value || '');
-  const maddeler = ham.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).map(function(l){
-    const i = l.indexOf(' | ');
-    return i>0 ? { k: l.slice(0,i).trim(), t: l.slice(i+3).trim() } : { k: '', t: l };
-  }).filter(function(m){ return m.t; });
-  if(!maddeler.length){ showToast('Listede satır yok'); return; }
+  const maddeler = alanOnayListe.filter(function(m){ return m.sec; }).map(function(m){ return { k: m.ek ? (m.kk||'') : m.k, t: m.t }; });
+  if(!maddeler.length){ showToast('Seçili satır yok'); return; }
   if(maddeler.length > ALAN_MAKS_SATIR){ showToast('En fazla '+ALAN_MAKS_SATIR+' satır oluşturulabilir'); return; }
   const bilgi = alanBekleyen || { komut:'', alan:'' };
   closeModal();
@@ -1384,7 +1434,7 @@ async function alanSatirlariOlustur(maddeler, komut, alanAdi){
     '<div class="modal-btn-row" style="margin-top:14px;"><button class="btn ghost" onclick="alanTaramaIptalEt()">İptal et</button></div>'
   );
   async function dene(m){
-    const baglam = (m.k ? m.k+' — ' : '') + alanEtiket + (komut ? '\nKullanıcının alan açıklaması ve talimatı: '+komut : '');
+    const baglam = (m.k ? m.k+' — ' : '') + alanEtiket + (komut ? '\nKullanıcının alan açıklaması ve talimatı: '+komut : '') + '\nALAN TARAMASI YAZIM KURALI: Risk cümlesini günlük sade dille yaz (şu işlem sırasında şu olur, sonucu şudur); jargon kullanırsan parantez içinde kısa açıkla; genel ifadelerden (örn. uzun vadede sağlık etkileri) kaçın. Saha bilgisi yoksa Mevcut Durum alanında bilgi sınırı cümlesi yerine son cümle olarak Sahada bakılacak noktalar: şeklinde 2-3 kısa, gözlenebilir kontrol noktasını noktalı virgülle ayırarak yaz (soru veya öneri kalıbı kullanma, tedbirin var olduğunu varsayma). Satır yalnızca belirtilen tek tehlike kaynağına odaklansın; aynı cihazın diğer tehlike kaynakları (örn. elektrik veya radyasyon yönü) ayrı satırlarda ele alınıyor, bu satıra karıştırma.';
     try{ return await callClaudeTehlikeSatiri(m.t, baglam); }
     catch(e1){
       await new Promise(function(r){ setTimeout(r, 2500); });
@@ -1428,36 +1478,30 @@ async function alanSatirlariOlustur(maddeler, komut, alanAdi){
     if(hatalar.length) setTimeout(function(){ showErrorDetailModal(hatalar, 'Bazı Satırlar Oluşturulamadı'); }, 1200);
   }
 }
-async function callClaudeAlanListesi(komut){
+async function callClaudeAlanEnvanter(komut){
+  const sistem = "Sen Türkiye'de çalışan deneyimli bir İSG uzmanısın. Kullanıcının verdiği hastane birimi/alanı için ÖNCE envanter çıkar: tehlike yazma. Türler: Cihaz, Süreç/Faaliyet, Kullanılan madde, Hasta/personel akışı, Fiziksel ortam. Alanda gerçekten bulunması muhtemel öğeleri, sahada çalışanın tanıyacağı sade adlarla yaz (örn. 'Konvansiyonel röntgen cihazı', 'Radyoaktif ilaç hazırlama'). Aynı öğeyi tekrar etme; toplam en fazla 60 öğe. SADECE JSON blokları ver: [{\"alan\":\"kısa birim adı\"},{\"k\":\"Tür\",\"t\":\"öğe\"}]";
+  const sonuc = await claudeMetinIstegi(sistem, "Alan / komut: "+komut, 4000, 6000);
+  return alanBloklariOku(sonuc.text);
+}
+async function callClaudeAlanListesi(komut, envanter, detay, ortak){
   const mevcut = ((state.project && state.project.satirlar) ? state.project.satirlar : [])
-    .map(function(r){ return (r.tehlike||'').trim(); }).filter(Boolean).slice(0,150)
-    .map(function(t){ return t.slice(0,80); });
-  const sistem = "Sen Türkiye'de çalışan deneyimli bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. Kullanıcı bir birim/alan/faaliyet için risk değerlendirme satırları isteyecek. Görevin, o alanda tanımlanabilecek TÜM tehlike ve faaliyetleri ayrı ve tekrarsız satırlar hâlinde, kategorilere ayırarak listelemektir. Sadece satır başlıklarını yaz; risk ve önlem yazma. "
-    + "Kapsam: (a) genel tehlikeler: yangın, elektrik, topraklama, düşme/kayma/takılma, çarpma/sıkışma, acil durum ve tahliye, acil çıkış, uyarı işaret ve levhaları, sigara yasağı, periyodik kontrol, bakım-onarım gibi alanın niteliğine uygun olanlar; (b) o alana ÖZGÜ fiziksel, kimyasal, biyolojik, ergonomik ve psikososyal tehlikeler, süreçler, cihaz ve donanımlar. "
-    + "Her kategorideki satır sayısını o kategorinin kapsamına göre kendin belirle (kimi kategoride 5-10, kimisinde çok daha fazla satır olabilir); kullanıcı belirli bir sayı veya kapsam belirttiyse ona uy. Toplam en fazla 150 satır yaz. Satır sayısını doldurmak için uydurma yapma, aynı tehlikeyi farklı sözlerle tekrar etme. "
-    + "Her satır tek bir tehlike/faaliyet olsun; kısa ve net yaz (örn. 'Kıyma makinesinin kullanımı'). Hastane/sağlık tesisi bağlamında yaz. "
-    + "SADECE aşağıdaki JSON dizisi formatında yanıt ver; başka hiçbir açıklama, markdown işareti veya metin ekleme. İlk eleman kısa birim adı olsun, sonrakiler satırlar:\n"
-    + "[{\"alan\":\"kısa birim/alan adı\"},{\"k\":\"kategori\",\"t\":\"tehlike/faaliyet\"}]";
-  const kullanici = "Alan / komut: " + komut
-    + (mevcut.length ? ("\n\nProjede ZATEN VAR olan satırlar (bunları ve eş anlamlılarını tekrar yazma): " + mevcut.join('; ')) : "");
+    .map(function(r){ return (r.tehlike||'').trim(); }).filter(Boolean).slice(0,150).map(function(t){ return t.slice(0,80); });
+  const seviye = { ozet:'25-35 satır', standart:'50-70 satır', ayrintili:'100-150 satır' }[detay] || '50-70 satır';
+  const sistem = "Sen Türkiye'de çalışan deneyimli bir İSG uzmanısın. Kullanıcının onayladığı alan envanterindeki her cihaz ve süreç için risk satırı başlıklarını yaz; risk ve önlem yazma. KURALLAR: (1) Hedef toplam: "+seviye+". (2) Bir cihaz/süreçte FARKLI tehlike kaynakları (radyasyon, elektrik, mekanik/sıkışma, kimyasal, biyolojik, yangın/patlama, ergonomik, gürültü, basınçlı gaz vb.) HER BİRİ AYRI satır olur; asla tek satırda birleştirme (örn. röntgen cihazı: 'Röntgen cihazının radyasyonu' ve 'Röntgen cihazının elektrik tehlikesi' ayrı). Aynı kaynaktan doğan alt adımları ve aynı tedbirlerle yönetilen durumları tek satırda topla. (3) Tehlike kaynağı cihaz/faaliyet/madde olsun; 'kurşun önlük kullanılmaması', 'zırhlama yetersizliği', 'dozimetre takılmaması', 'eğitim eksikliği' gibi tedbir eksiklikleri AYRI satır olmasın, ilgili tehlikenin içinde ele alınır. (4) Başlıklar kısa, sade ve sahada çalışanın anlayacağı dilde olsun. (5) Kategori adı olarak envanterdeki cihaz/süreç adını veya ana grubu kullan. "
+    + (ortak ? "(6) Alan geneline ait ortak tehlikeleri (yangın/tahliye, kayma-düşme, aydınlatma, havalandırma, tıbbi atık, tıbbi gaz tüpü, yalnız çalışma, taşeron ve yetkisiz giriş vb.) 'Ortak tehlikeler' kategorisinde ve en fazla 12 satırla yaz; cihaza bağlı elektrik/yangın ise o cihazın satırında kalsın. " : "(6) Alan geneline ait ortak tehlikeleri (genel yangın, tahliye, aydınlatma vb.) YAZMA; yalnızca cihaz/süreç satırlarını yaz. ")
+    + "Hastane bağlamında yaz. Uydurma ve eş anlamlı tekrar yapma. SADECE JSON blokları ver: [{\"alan\":\"kısa birim adı\"},{\"k\":\"kategori\",\"t\":\"tehlike\"}]";
+  const kullanici = "Alan / komut: "+komut+"\n\nOnaylanan envanter:\n"+envanter
+    + (mevcut.length ? ("\n\nProjede ZATEN VAR olan satırlar (bunları tekrar yazma): "+mevcut.join('; ')) : "");
   const sonuc = await claudeMetinIstegi(sistem, kullanici, 6000, 8000);
-  const ham = sonuc.text.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'");
-  let alan = '';
-  const maddeler = [];
-  const gorulen = {};
-  (ham.match(/\{[^{}]*\}/g) || []).forEach(function(blok){
-    try{
-      const o = JSON.parse(blok.replace(/,\s*\}/g,'}'));
-      if(o.alan && !alan){ alan = String(o.alan).trim(); }
-      const t = String(o.t || '').replace(/\|/g,'/').trim();
-      if(t.length < 4) return;
-      const anahtar = t.toLowerCase();
-      if(gorulen[anahtar]) return;
-      gorulen[anahtar] = 1;
-      maddeler.push({ k: String(o.k || '').replace(/\|/g,'/').trim(), t: t });
-    } catch(e){}
-  });
-  return { alan: alan, maddeler: maddeler.slice(0, ALAN_MAKS_SATIR), kesildi: sonuc.kesildi };
+  const o = alanBloklariOku(sonuc.text);
+  return { alan: o.alan, maddeler: o.maddeler.slice(0, ALAN_MAKS_SATIR), kesildi: sonuc.kesildi };
+}
+async function callClaudeAlanEk(komut, envanter, liste){
+  const sistem = "Sen Türkiye'de çalışan deneyimli bir İSG uzmanısın. Bir alan için çıkarılmış risk satırı listesi sana verilecek. Listede OLMAYAN ama bu alanda sık atlanan, mevzuatta veya denetimlerde aranan, ya da envanterdeki bir cihaz/sürecin gözden kaçmış tehlike kaynaklarını öner. En fazla 12 öneri. Listedekilerle aynı olanları veya eş anlamlılarını yazma. Her öneri tek tehlike kaynağı olsun, kısa/sade yazılsın ve 'n' alanında bir cümlelik gerekçe versin. Emin olmadığın şeyi uydurma; öneri yoksa boş dizi ver. SADECE JSON blokları ver: [{\"k\":\"kategori\",\"t\":\"tehlike\",\"n\":\"neden önerildi\"}]";
+  const kullanici = "Alan / komut: "+komut+"\n\nEnvanter:\n"+envanter+"\n\nMevcut liste: "+liste.map(function(m){ return m.t; }).join('; ');
+  const sonuc = await claudeMetinIstegi(sistem, kullanici, 3000, 4500);
+  const mevcutSet = {}; liste.forEach(function(m){ mevcutSet[m.t.toLowerCase()] = 1; });
+  return alanBloklariOku(sonuc.text).maddeler.filter(function(m){ return !mevcutSet[m.t.toLowerCase()]; }).slice(0,12);
 }
 
 /* ---------------- FOTOĞRAFTAN OTOMATİK TESPİT ---------------- */
